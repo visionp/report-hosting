@@ -217,8 +217,9 @@ The current link points to the active release. Nginx reads files from this link.
 | Table | Main fields | Notes |
 | --- | --- | --- |
 | sites | id, name, slug, auth_username, status (active or disabled), current_release_id, created_at, updated_at | Store no plain-text password and no password hash. |
-| releases | id, site_id, version, storage_path, checksum, status (ready or active), created_at | Use a unique version for each site. The status ready means that the release is on disk but is not yet active. Calculate the checksum with SHA-256. |
+| releases | id, site_id, version, storage_path, checksum, status (ready, active, or superseded), created_at | Use a unique version for each site. The status ready means that the release is on disk but is not yet active. The status superseded means an older release that is kept for the retention rule. Start recovery removes only releases in the status ready. Calculate the checksum with SHA-256. |
 | audit_events | id, actor, action, site_id, created_at | Record admin actions. Required in the MVP. Do not store passwords or tokens. |
+| admins | id, username, password_hash, created_at | Store the single administrator. The hash uses argon2id. The setup command creates the row. |
 | admin_sessions | id_hash, created_at, last_seen_at, expires_at | Store server-side sessions. Store a hash of the session identifier. expires_at is the absolute end: created_at plus 12 hours. The 30-minute idle timeout counts from last_seen_at. |
 | login_attempts | key, count, window_start, locked_until | Store failed-login counters for the lockout rule. |
 
