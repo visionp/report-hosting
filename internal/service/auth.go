@@ -87,6 +87,38 @@ type Auth struct {
 	Now    func() time.Time
 	Params config.Argon2Params
 	mu     sync.Mutex
+	// verifying serializes password checks per account (guarded by mu) so a
+	// burst of concurrent guesses cannot all pass the lockout check before
+	// any failure is recorded.
+	verifying map[string]*verifyLock
+}
+
+type verifyLock struct {
+	sync.Mutex
+	refs int
+}
+
+func (a *Auth) lockAccount(username string) func() {
+	a.mu.Lock()
+	if a.verifying == nil {
+		a.verifying = map[string]*verifyLock{}
+	}
+	l := a.verifying[username]
+	if l == nil {
+		l = &verifyLock{}
+		a.verifying[username] = l
+	}
+	l.refs++
+	a.mu.Unlock()
+	l.Lock()
+	return func() {
+		l.Unlock()
+		a.mu.Lock()
+		if l.refs--; l.refs == 0 {
+			delete(a.verifying, username)
+		}
+		a.mu.Unlock()
+	}
 }
 
 func (a *Auth) now() time.Time {
@@ -100,20 +132,25 @@ func (a *Auth) Login(ctx context.Context, username, password, ip string) (string
 	if len(username) > 32 || len(password) > 4096 || len(ip) > 64 || username == "" {
 		return "", ErrBadCredentials
 	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	unlockAccount := a.lockAccount(username)
+	defer unlockAccount()
 	now := a.now()
 	keys := []string{"ip:" + ip, "account:" + username}
+	a.mu.Lock()
 	for _, key := range keys {
 		until, err := a.Store.LockedUntil(ctx, key)
 		if err != nil {
+			a.mu.Unlock()
 			return "", err
 		}
 		if now.Before(until) {
+			a.mu.Unlock()
 			return "", ErrLocked
 		}
 	}
 	admin, err := a.Store.GetAdmin(ctx, username)
+	a.mu.Unlock()
+	// The expensive Argon2 work runs outside the lock so it cannot block Validate.
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return "", err
 	}
@@ -125,6 +162,19 @@ func (a *Auth) Login(ctx context.Context, username, password, ip string) (string
 		}
 		// Match the expensive password work even when the account is absent.
 		argon2.IDKey([]byte(password), make([]byte, 16), p.Iterations, p.Memory, p.Parallelism, 32)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	// Re-check under the lock: another attempt (e.g. from the same IP) may have
+	// locked a key while the hash was running.
+	for _, key := range keys {
+		until, err := a.Store.LockedUntil(ctx, key)
+		if err != nil {
+			return "", err
+		}
+		if a.now().Before(until) {
+			return "", ErrLocked
+		}
 	}
 	if !valid {
 		for _, key := range keys {

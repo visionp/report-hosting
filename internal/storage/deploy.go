@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -174,8 +175,9 @@ func (d *Deployer) deploy(ctx context.Context, siteID string, stage func(string)
 		return release, err
 	}
 	release.Status = domain.ReleaseActive
+	// The release is live; pruning is best-effort and must not fail the deploy.
 	if err := d.prune(context.WithoutCancel(ctx), siteID); err != nil {
-		return release, err
+		log.Printf("prune releases for site %s: %v", siteID, err)
 	}
 	return release, nil
 }

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,18 +32,18 @@ type AuditEvent struct {
 
 // Open initializes the schema. A single connection keeps pragmas and writes consistent.
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path)
+	// Pragmas live in the DSN so every (re)opened pooled connection gets them.
+	q := url.Values{}
+	q.Add("_pragma", "foreign_keys(1)")
+	q.Add("_pragma", "busy_timeout(5000)")
+	q.Add("_pragma", "journal_mode(WAL)")
+	dsn := (&url.URL{Scheme: "file", Opaque: path, RawQuery: q.Encode()}).String()
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	for _, q := range []string{"PRAGMA foreign_keys=ON", "PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL"} {
-		if _, err = db.Exec(q); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("configure database: %w", err)
-		}
-	}
 	tx, err := db.Begin()
 	if err != nil {
 		db.Close()
