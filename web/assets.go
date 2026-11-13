@@ -2,8 +2,8 @@ package web
 
 import "embed"
 
-//go:embed templates/dashboard.html
-var Dashboard string
+//go:embed templates/*.html
+var Templates embed.FS
 
 //go:embed static/*
 var Assets embed.FS

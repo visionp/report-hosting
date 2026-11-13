@@ -3,11 +3,8 @@ package handler
 import (
 	"net/http"
 	"report_hosting/internal/domain"
-	"report_hosting/web"
 	"strings"
 )
-
-var dashboard = web.Dashboard
 
 func (h *router) ui(w http.ResponseWriter, r *http.Request, token string) {
 	password := ""
@@ -60,7 +57,7 @@ func (h *router) ui(w http.ResponseWriter, r *http.Request, token string) {
 		h.fail(w, err)
 		return
 	}
-	render(w, dashboard, struct {
+	render(w, "dashboard", struct {
 		Sites          []domain.Site
 		CSRF, Password string
 	}{sites, token, password})
