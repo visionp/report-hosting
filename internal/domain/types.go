@@ -48,4 +48,5 @@ var (
 	ErrSlugConfirmation = errors.New("slug confirmation mismatch")
 	ErrSiteNotDisabled  = errors.New("site must be disabled")
 	ErrNotFound         = errors.New("not found")
+	ErrNameRequired     = errors.New("site name required")
 )
