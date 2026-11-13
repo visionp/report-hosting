@@ -12,7 +12,32 @@
 
 **Module path:** `report_hosting` (set by the user). Imports look like `report_hosting/internal/domain`. The binary and the service keep the name `report_hosting` (`cmd/report_hosting`, `report_hosting.service`).
 
-## Global Constraints
+## Delivery status — 13 November 2026
+
+The task checkboxes below are the original execution recipe, including proposed
+intermediate failing-test runs and per-task commits. They are not a completion
+ledger: no per-task commits were made. Current deliverables are tracked here.
+
+| Tasks | Status |
+| --- | --- |
+| 1–10 | Implemented: configuration, domain, database, credentials, uploads, atomic releases, routing, recovery, site service, authentication, middleware and API. |
+| 11 | Implemented: embedded server-rendered dashboard, site details, lifecycle forms and local HTMX. Automated HTTP/template checks are included; interactive browser walkthrough remains pending. |
+| 12 | Implemented: Nginx/systemd and local integration tests. Actual Nginx integration passed in Docker, including SSHA, isolation, dynamic routing, permissions, mTLS and SNI/Host mismatch checks. |
+| 13 | Runbook and configuration examples prepared. Live VPS/Cloudflare checklist has NOT been executed. |
+| 14 | Local lifecycle, recovery, isolation, secret-logging and concurrency tests implemented. Live acceptance remains pending. |
+
+Linux builds and tests use Docker. Dependencies require Go 1.26 (the original
+Go 1.22 minimum is superseded). The executable is exported to `out/report_hosting`.
+The local vulnerability scan reported no known reachable vulnerabilities.
+Final validation passed: `go vet ./...`, `go test -race -count=1 ./...`,
+`go mod verify`, `govulncheck`, the isolated Nginx integration script and the
+real executable smoke test (`deploy/scripts/app-smoke.sh`). The smoke test
+exercises configuration, admin creation, startup, login, site creation,
+HTML deployment, site detail, disable and permanent deletion.
+Production acceptance still requires real DNS/TLS/Access/cache/IPv6 checks,
+verification of existing VPS services, and the manual steps in `deploy/RUNBOOK.md`.
+
+## Global Constraints (requirements)
 
 Every task includes these. Values are copied from the spec.
 
@@ -29,6 +54,18 @@ Every task includes these. Values are copied from the spec.
 - No Docker in the deployment. Backups and alerting are out of scope (§12.3, §12.4).
 
 ## Review Focus
+
+### Implementation clarifications (13 November 2026)
+
+- Docker is used for Linux builds and tests, as requested. Production remains a native Go binary managed by systemd.
+- Serialize all mutations of sites in the service, including create, rename, deploy, disable, delete and credentials. For this small MVP one service mutex is acceptable.
+- Disable: commit disabled status before removing the routing link. If removal fails, return an error; startup recovery must remove the stale link. A crash must not silently turn a successfully disabled site back on.
+- Rename a disabled site by updating metadata only; never create a public routing link for it.
+- Startup recovery also cleans staging and unreferenced release directories. Validate symlink destinations against the site's own release directories before trusting them.
+- Allow multipart request overhead separately from the uploaded file byte limit.
+- Do not install a new Nginx default_server on shared listeners. Unknown-host and SNI rejection must be reviewed against the existing VPS configuration before production acceptance.
+- Local browser development requires HTTPS for the production-style Secure session cookie.
+- Nginx's existence check must use the complete `$document_root`, after the `root` directive. A shorter `by-slug` path makes `disable_symlinks ... from=$document_root` reject the service-managed link. This was reproduced and fixed in the real Nginx integration test.
 
 Input classes the spec implies but does not test. Each has a test in the owning task.
 

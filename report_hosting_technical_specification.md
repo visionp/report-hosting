@@ -322,7 +322,7 @@ disable_symlinks     on from=$document_root;
 
 An exact server_name has priority over a regular expression. Because of this, admin.partnersflex.space always uses the admin block.
 
-Add a check before authentication. If the directory /var/lib/report_hosting/by-slug/$slug does not exist, return 404. Without this check, an unknown or disabled site would cause an error for the missing password file. The slug comes from a strict character set. Do not build file paths from any other request data.
+Add a check before authentication, after the root directive: `if (!-d $document_root) { return 404; }`. Check the full document root, because the shorter by-slug path makes disable_symlinks inspect and reject the service-managed routing link. An unknown, disabled or not-yet-deployed site returns 404. The real Nginx integration test verifies this behavior. The slug comes from a strict character set. Do not build file paths from any other request data.
 
 Nginx does not need a reload when a site is created, renamed, disabled, enabled, or deleted. Go changes only symbolic links and files. Nginx reads them on each request. The Go process must not write to /etc/nginx and must not run commands as root. Use a root-owned, manual process to install the static Nginx configuration. Validate it with nginx -t before each reload.
 

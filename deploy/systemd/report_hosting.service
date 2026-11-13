@@ -1,0 +1,27 @@
+[Unit]
+Description=Static report hosting administration
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=report_hosting
+Group=report_hosting
+WorkingDirectory=/var/lib/report_hosting
+EnvironmentFile=/etc/report_hosting/report_hosting.env
+ExecStart=/usr/local/bin/report_hosting serve -config /etc/report_hosting/config.json
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/report_hosting
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+.git
+.idea
+.cursor
+.tools
+data
+out
+bin
+*.sqlite*
+.env
+*.pem
+*.key
+*.crt
+*.exe
+coverage.*

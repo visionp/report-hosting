@@ -17,6 +17,12 @@ coverage.*
 !coverage.go
 *.coverprofile
 profile.cov
+/out/
+/bin/
+/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
