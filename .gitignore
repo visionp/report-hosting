@@ -20,6 +20,7 @@ profile.cov
 /out/
 /bin/
 /data/
+/releases/
 __pycache__/
 *.sqlite
 *.sqlite-shm
