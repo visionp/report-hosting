@@ -1,4 +1,4 @@
-# visionp MVP Implementation Plan
+# report_hosting MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.22+ (plan decision: `ServeMux` method patterns), `modernc.org/sqlite`, `golang.org/x/crypto/argon2`, `github.com/golang-jwt/jwt/v5` (Access token check), HTMX file vendored in `web/static`, Nginx 1.18+, systemd, Cloudflare.
 
-**Spec:** `visionp_technical_specification.md` (version 1.2). Section numbers below (§) refer to it.
+**Spec:** `report_hosting_technical_specification.md` (version 1.2). Section numbers below (§) refer to it.
 
-**Module path:** `report_hosting` (set by the user). Imports look like `report_hosting/internal/domain`. The binary and the service keep the name `visionp` (`cmd/visionp`, `visionp.service`).
+**Module path:** `report_hosting` (set by the user). Imports look like `report_hosting/internal/domain`. The binary and the service keep the name `report_hosting` (`cmd/report_hosting`, `report_hosting.service`).
 
 ## Global Constraints
 
@@ -42,7 +42,7 @@ Input classes the spec implies but does not test. Each has a test in the owning 
 
 ```text
 go.mod (module report_hosting), Makefile
-cmd/visionp/main.go                 # serve | admin create
+cmd/report_hosting/main.go                 # serve | admin create
 migrations/001_init.sql
 internal/config/config.go           # Config, Load
 internal/domain/{types,validate}.go # Site, Release, errors, slug/username rules
@@ -55,7 +55,7 @@ internal/routing/links.go           # by-slug symlinks
 internal/service/{sites,recovery,auth}.go
 internal/handler/{middleware,api,ui,router}.go
 web/templates/*.html, web/static/htmx.min.js
-deploy/nginx/visionp.conf, deploy/systemd/visionp.service
+deploy/nginx/report_hosting.conf, deploy/systemd/report_hosting.service
 deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
 ```
 
@@ -64,7 +64,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
 ### Task 1: Scaffold, config, domain rules
 
 **Files:**
-- Create: `go.mod`, `Makefile`, `cmd/visionp/main.go`, `internal/config/config.go`, `internal/domain/types.go`, `internal/domain/validate.go`
+- Create: `go.mod`, `Makefile`, `cmd/report_hosting/main.go`, `internal/config/config.go`, `internal/domain/types.go`, `internal/domain/validate.go`
 - Test: `internal/domain/validate_test.go`, `internal/config/config_test.go`
 
 **Interfaces:**
@@ -86,7 +86,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   TestProductionRequiresAccessCheck: Production=true, AccessCheck=false -> Load returns error
   ```
 - [ ] **Step 2: Run** `go test ./internal/... -v` → FAIL (undefined)
-- [ ] **Step 3: Implement** the signatures above. Config is a TOML or JSON file plus env override for secrets (decide: JSON file, `VISIONP_*` env). `AccessCheck` defaults to true.
+- [ ] **Step 3: Implement** the signatures above. Config is a TOML or JSON file plus env override for secrets (decide: JSON file, `REPORT_HOSTING_*` env). `AccessCheck` defaults to true.
 - [ ] **Step 4: Run** `go test ./internal/... -v` → PASS
 - [ ] **Step 5: Commit** `feat: scaffold, config, slug and username rules`
 
@@ -273,7 +273,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
 ### Task 8: Admin authentication and sessions
 
 **Files:**
-- Create: `internal/service/auth.go`; modify `cmd/visionp/main.go` (add `admin create` subcommand)
+- Create: `internal/service/auth.go`; modify `cmd/report_hosting/main.go` (add `admin create` subcommand)
 - Test: `internal/service/auth_test.go`
 
 **Interfaces:**
@@ -294,7 +294,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   TestStoredSessionIsHashed: DB value != session ID
   ```
 - [ ] **Step 2: Run** `go test ./internal/service/ -run 'Auth|Login|Session|Lockout' -v` → FAIL
-- [ ] **Step 3: Implement** `visionp admin create <username>` — reads the password from stdin (no echo, no argument), stores the argon2id hash; refuses if an admin already exists.
+- [ ] **Step 3: Implement** `report_hosting admin create <username>` — reads the password from stdin (no echo, no argument), stores the argon2id hash; refuses if an admin already exists.
 - [ ] **Step 4: Run** → PASS
 - [ ] **Step 5: Commit** `feat: admin auth, sessions, lockout, admin create command`
 
@@ -312,7 +312,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   - `handler.RequireSession(a *service.Auth) func(http.Handler) http.Handler`
   - `handler.CSRF(...)` (per-session token in form field or `X-CSRF-Token`, plus `Origin`/`Host` check for state-changing methods)
   - `handler.SecurityHeaders` (CSP `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`)
-  - `handler.SessionCookie(id string) *http.Cookie` (`__Host-visionp_session`, `Secure; HttpOnly; SameSite=Strict; Path=/`, no Domain)
+  - `handler.SessionCookie(id string) *http.Cookie` (`__Host-report_hosting_session`, `Secure; HttpOnly; SameSite=Strict; Path=/`, no Domain)
   - `handler.RedactingLogger` helper that drops the four forbidden headers
 
 - [ ] **Step 1: Write failing tests**
@@ -376,20 +376,20 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   ```
 - [ ] **Step 2: Run** `go test ./internal/handler/ -run UI -v` → FAIL
 - [ ] **Step 3: Implement** server-rendered templates; HTMX only for partial updates (list refresh, deploy status).
-- [ ] **Step 4: Run** → PASS. Then `go run ./cmd/visionp serve` locally with `AccessCheck=false` and click through create → upload → disable → delete.
+- [ ] **Step 4: Run** → PASS. Then `go run ./cmd/report_hosting serve` locally with `AccessCheck=false` and click through create → upload → disable → delete.
 - [ ] **Step 5: Commit** `feat: server-rendered admin UI`
 
 ### Task 12: Nginx and systemd files, with an integration test
 
 **Files:**
-- Create: `deploy/nginx/visionp.conf`, `deploy/systemd/visionp.service`, `deploy/scripts/nginx-itest.sh`
+- Create: `deploy/nginx/report_hosting.conf`, `deploy/systemd/report_hosting.service`, `deploy/scripts/nginx-itest.sh`
 - Test: the script itself (needs `nginx`, `curl`, `openssl` installed; skip with a clear message if absent)
 
 **Interfaces:**
-- Consumes: the file layout (`/var/lib/visionp/by-slug/{slug}/current`, `.htpasswd`), the Go binary's local listen address.
+- Consumes: the file layout (`/var/lib/report_hosting/by-slug/{slug}/current`, `.htpasswd`), the Go binary's local listen address.
 - Produces:
-  - `visionp.conf` with four server blocks: admin (exact name, proxy to Go, `frame-ancestors 'none'` and `X-Frame-Options`, `client_max_body_size 55m`, `limit_req` 10 r/m for deploy), hosted sites (regex `~^(?<slug>[a-z0-9-]+)\.partnersflex\.space$`, `root .../by-slug/$slug/current`, `auth_basic_user_file .../by-slug/$slug/.htpasswd`, `disable_symlinks on from=$document_root`, 404 check before auth with `if (!-d ...)`, `Cache-Control: private, no-store`, `limit_req` 30 r/s burst 60, hidden-file deny, TLS 1.2/1.3), a default server for unknown hosts, `ssl_verify_client on` with `ssl_client_certificate` (zone custom CA), `set_real_ip_from` for Cloudflare IPv4 and IPv6 plus `real_ip_header CF-Connecting-IP`
-  - `visionp.service` per §12.2: `User=visionp`, `NoNewPrivileges=true`, `ProtectSystem=strict`, `ProtectHome=true`, `PrivateTmp=true`, `ReadWritePaths=/var/lib/visionp`, `EnvironmentFile` mode 0600, `Restart=on-failure`
+  - `report_hosting.conf` with four server blocks: admin (exact name, proxy to Go, `frame-ancestors 'none'` and `X-Frame-Options`, `client_max_body_size 55m`, `limit_req` 10 r/m for deploy), hosted sites (regex `~^(?<slug>[a-z0-9-]+)\.partnersflex\.space$`, `root .../by-slug/$slug/current`, `auth_basic_user_file .../by-slug/$slug/.htpasswd`, `disable_symlinks on from=$document_root`, 404 check before auth with `if (!-d ...)`, `Cache-Control: private, no-store`, `limit_req` 30 r/s burst 60, hidden-file deny, TLS 1.2/1.3), a default server for unknown hosts, `ssl_verify_client on` with `ssl_client_certificate` (zone custom CA), `set_real_ip_from` for Cloudflare IPv4 and IPv6 plus `real_ip_header CF-Connecting-IP`
+  - `report_hosting.service` per §12.2: `User=report_hosting`, `NoNewPrivileges=true`, `ProtectSystem=strict`, `ProtectHome=true`, `PrivateTmp=true`, `ReadWritePaths=/var/lib/report_hosting`, `EnvironmentFile` mode 0600, `Restart=on-failure`
 
 - [ ] **Step 1: Write the failing integration script.** It builds a temp tree with two sites and a self-signed cert, starts Nginx with the config (paths templated), and asserts with `curl --resolve`:
   ```text
@@ -404,7 +404,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   nginx -t passes
   ```
 - [ ] **Step 2: Run** `bash deploy/scripts/nginx-itest.sh` → FAIL (no config)
-- [ ] **Step 3: Write `visionp.conf` and `visionp.service`.** Placeholders for domain, cert paths, data dir.
+- [ ] **Step 3: Write `report_hosting.conf` and `report_hosting.service`.** Placeholders for domain, cert paths, data dir.
 - [ ] **Step 4: Run** the script → all assertions print PASS
 - [ ] **Step 5: Commit** `feat: nginx config, systemd unit, integration test`
 
@@ -422,7 +422,7 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
   4. Zone-level Authenticated Origin Pulls with a **custom** client certificate; install its CA for Nginx. Shared Cloudflare certificate must be rejected. (AC-26)
   5. Cache Rule: bypass cache for `*.partnersflex.space`. (AC-16)
   6. Cloudflare Access application on `admin.partnersflex.space`; copy team domain and AUD into the config. (AC-01, AC-28)
-  7. VPS: user/group `visionp`, directories and modes (`db/`, `staging/` 0700; others 0750), install config and unit, `nginx -t` then reload, `systemctl enable --now visionp`, `visionp admin create`.
+  7. VPS: user/group `report_hosting`, directories and modes (`db/`, `staging/` 0700; others 0750), install config and unit, `nginx -t` then reload, `systemctl enable --now report_hosting`, `report_hosting admin create`.
   8. Verify existing `visionp.uk` services still answer (AC-14).
   9. Smoke test: sign in, create site, upload ZIP and HTML, open the site with the generated password, disable, enable, delete.
 - [ ] **Step 2: Execute the checklist on the VPS** and record each result in the runbook. Expected: every box checked; any failure blocks release.
@@ -474,5 +474,5 @@ deploy/scripts/nginx-itest.sh, deploy/RUNBOOK.md
 
 - **Spec coverage:** every FR and AC maps to a task above; AC-15 is deliberately deferred.
 - **Spec fixes made while planning:** `releases.status` gained `superseded` (otherwise recovery would delete retained releases); an `admins` table was added.
-- **Plan decisions the spec left open:** Go 1.22+, JSON config with `VISIONP_*` env secrets, JWT library, per-site mutex for deploy serialization, password shown only in the create and regenerate responses.
+- **Plan decisions the spec left open:** Go 1.22+, JSON config with `REPORT_HOSTING_*` env secrets, JWT library, per-site mutex for deploy serialization, password shown only in the create and regenerate responses.
 - **Not covered by code:** Cloudflare console steps (Task 13 is manual) and the real VPS Nginx build; both are checked by the runbook and `acceptance.sh`.

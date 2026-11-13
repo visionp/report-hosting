@@ -1,4 +1,4 @@
-# VISIONP
+# REPORT_HOSTING
 
 ## Static Website Hosting and Administration Service
 
@@ -8,13 +8,13 @@
 | --- | --- |
 | Version | 1.2 |
 | Date | 13 November 2026 |
-| Product name | visionp |
+| Product name | report_hosting |
 | Domain namespace | partnersflex.space |
 | Target platform | Debian or Ubuntu VPS |
 | Backend language | Go |
 
 > **Purpose**
-> This document defines the problem, the system requirements, and the proposed solution for visionp. The service will host up to 20 static websites on the existing VPS. It will use the dedicated domain partnersflex.space. It will use the current VPS, Nginx, Go, SQLite, and Cloudflare.
+> This document defines the problem, the system requirements, and the proposed solution for report_hosting. The service will host up to 20 static websites on the existing VPS. It will use the dedicated domain partnersflex.space. It will use the current VPS, Nginx, Go, SQLite, and Cloudflare.
 
 > **Writing note.** This document uses short sentences, consistent terms, and direct instructions. It follows the writing principles of ASD-STE100. It is not a certified STE document. A formal compliance review requires the current standard and an STE checker.
 
@@ -22,7 +22,7 @@
 
 # 1. Executive Summary
 
-visionp is a small website hosting service. It will run on the existing VPS. An administrator will use a web panel to create a site, upload its files, regenerate its access password, and manage its address.
+report_hosting is a small website hosting service. It will run on the existing VPS. An administrator will use a web panel to create a site, upload its files, regenerate its access password, and manage its address.
 
 The service will support two upload types:
 
@@ -188,9 +188,9 @@ Nginx must serve static files directly. Do not send normal website requests to t
 ## 7.1 File Layout
 
 ```text
-/var/lib/visionp/
+/var/lib/report_hosting/
   db/
-    visionp.sqlite
+    report_hosting.sqlite
   sites/
     {site-uuid}/
       current -> releases/000001
@@ -315,14 +315,14 @@ The hosted-site block uses this rule:
 
 ```text
 server_name ~^(?<slug>[a-z0-9-]+)\.partnersflex\.space$;
-root                 /var/lib/visionp/by-slug/$slug/current;
-auth_basic_user_file /var/lib/visionp/by-slug/$slug/.htpasswd;
+root                 /var/lib/report_hosting/by-slug/$slug/current;
+auth_basic_user_file /var/lib/report_hosting/by-slug/$slug/.htpasswd;
 disable_symlinks     on from=$document_root;
 ```
 
 An exact server_name has priority over a regular expression. Because of this, admin.partnersflex.space always uses the admin block.
 
-Add a check before authentication. If the directory /var/lib/visionp/by-slug/$slug does not exist, return 404. Without this check, an unknown or disabled site would cause an error for the missing password file. The slug comes from a strict character set. Do not build file paths from any other request data.
+Add a check before authentication. If the directory /var/lib/report_hosting/by-slug/$slug does not exist, return 404. Without this check, an unknown or disabled site would cause an error for the missing password file. The slug comes from a strict character set. Do not build file paths from any other request data.
 
 Nginx does not need a reload when a site is created, renamed, disabled, enabled, or deleted. Go changes only symbolic links and files. Nginx reads them on each request. The Go process must not write to /etc/nginx and must not run commands as root. Use a root-owned, manual process to install the static Nginx configuration. Validate it with nginx -t before each reload.
 
@@ -344,7 +344,7 @@ Cloudflare caches common static file types by default. A cached response could r
 | Area | Requirement |
 | --- | --- |
 | Admin access | Use two layers. Cloudflare Access restricts access to the administrator identity. The application also requires an admin login with an argon2id password hash. Do not allow public registration. The application MUST validate the Cloudflare Access token in production: the signature (with Cloudflare public keys), the issuer, the audience, and the expiry. Provide a configuration switch to disable this check for local development only. The default value is that the check is on. The service MUST NOT start in production mode with the check off. |
-| Admin login | Lock a login for 15 minutes after 5 failed attempts in 15 minutes. Count attempts for each source address and for the account. Store the counters in SQLite. Create the first administrator with a setup command (for example, visionp admin create). The command writes an argon2id hash with memory 64 MiB, 3 iterations, and parallelism 2. Make these values configurable. |
+| Admin login | Lock a login for 15 minutes after 5 failed attempts in 15 minutes. Count attempts for each source address and for the account. Store the counters in SQLite. Create the first administrator with a setup command (for example, report_hosting admin create). The command writes an argon2id hash with memory 64 MiB, 3 iterations, and parallelism 2. Make these values configurable. |
 | Session cookies | Use Secure, HttpOnly, and SameSite=Strict cookies. Use the __Host- prefix, Path=/, and no Domain attribute. Do not set a parent-domain cookie. Keep sessions on the server in SQLite. Use an idle timeout of 30 minutes and an absolute lifetime of 12 hours. Issue a new session identifier after each successful login. Delete the session at logout. |
 | Request validation | Validate Host and Origin. Add CSRF tokens to state-changing requests. Do not rely on SameSite alone, because hosted sites and the admin panel are same-site. Do not enable wildcard CORS. Forbid framing of the admin panel (see section 9.3). A hosted site is same-site with the admin panel, so a site could otherwise show the panel in a frame and trick the administrator into a click. |
 | Site access | Use separate Basic Auth credentials for each site. Generate each password with a cryptographic random source (Go crypto/rand). Use at least 20 characters from an alphabet of at least 64 symbols, for example A-Z, a-z, 0-9, hyphen, and underscore. Do not use a colon. This gives about 120 bits of entropy. Do not store plain-text passwords. |
@@ -399,11 +399,11 @@ The server MUST reject a delete request if the body does not contain the exact s
 
 ## 12.1 Service Accounts and Permissions
 
-Run the Go application as a dedicated visionp user. Do not run it as root. Use a dedicated group to grant Nginx read access to released website files, the by-slug links, and the .htpasswd files. Give write access only to the paths that the Go service needs. Nginx needs read access to the sites directory, the by-slug links, and the .htpasswd files. Do not give the group access to db/ and staging/. Set db/ and staging/ to mode 0700 for the visionp user. Do not add other services on the VPS to the visionp group. The Go service creates release files. Use umask 027, or set explicit modes: 0750 for directories and 0640 for files. Without these modes, Nginx cannot read a new release and returns 403. Test this with a new release.
+Run the Go application as a dedicated report_hosting user. Do not run it as root. Use a dedicated group to grant Nginx read access to released website files, the by-slug links, and the .htpasswd files. Give write access only to the paths that the Go service needs. Nginx needs read access to the sites directory, the by-slug links, and the .htpasswd files. Do not give the group access to db/ and staging/. Set db/ and staging/ to mode 0700 for the report_hosting user. Do not add other services on the VPS to the report_hosting group. The Go service creates release files. Use umask 027, or set explicit modes: 0750 for directories and 0640 for files. Without these modes, Nginx cannot read a new release and returns 403. Test this with a new release.
 
 ## 12.2 systemd
 
-Run the application as a systemd service. Use a fixed working directory and an explicit configuration file. Enable automatic restart after a process failure. Send logs to journald. Set User=visionp, NoNewPrivileges=true, ProtectSystem=strict, ProtectHome=true, PrivateTmp=true, and ReadWritePaths=/var/lib/visionp. Keep secrets in an EnvironmentFile with mode 0600, owned by root. systemd reads it before it starts the service as the visionp user.
+Run the application as a systemd service. Use a fixed working directory and an explicit configuration file. Enable automatic restart after a process failure. Send logs to journald. Set User=report_hosting, NoNewPrivileges=true, ProtectSystem=strict, ProtectHome=true, PrivateTmp=true, and ReadWritePaths=/var/lib/report_hosting. Keep secrets in an EnvironmentFile with mode 0600, owned by root. systemd reads it before it starts the service as the report_hosting user.
 
 ## 12.3 Backups (deferred)
 
@@ -424,8 +424,8 @@ Backups are outside the MVP. Until backups exist, the VPS holds the only copy of
 # 13. Repository Structure
 
 ```text
-visionp/
-  cmd/visionp/main.go
+report_hosting/
+  cmd/report_hosting/main.go
   internal/
     config/
     domain/
