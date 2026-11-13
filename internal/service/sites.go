@@ -210,16 +210,12 @@ func (s *Sites) Delete(ctx context.Context, actor, id, confirmSlug string) error
 	if err = s.Links.Remove(v.Slug); err != nil {
 		return err
 	}
-	// Audit only after the database delete succeeded, so the log never claims a
-	// deletion that did not happen. The audit table has no FK to sites.
-	if err = s.Store.DeleteSite(ctx, id); err != nil {
+	// Preserve both metadata and files if the durable audit cannot be written.
+	if err = s.Store.DeleteSiteWithAudit(ctx, id, actor); err != nil {
 		return err
 	}
-	rmErr := os.RemoveAll(s.Layout.SiteDir(id))
-	if err = s.record(context.WithoutCancel(ctx), actor, "delete", id); err != nil {
-		return err
-	}
-	return rmErr
+	s.logger().InfoContext(ctx, "site action recorded", "action", "delete", "site_id", id)
+	return os.RemoveAll(s.Layout.SiteDir(id))
 }
 func (s *Sites) RegenerateCredentials(ctx context.Context, actor, id, username string) (string, error) {
 	s.mu.Lock()

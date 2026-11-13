@@ -102,30 +102,54 @@ type Auth struct {
 }
 
 type verifyLock struct {
-	sync.Mutex
-	refs int
+	token chan struct{}
+	refs  int
 }
 
-func (a *Auth) lockAccount(username string) func() {
+// Shared across Auth instances: at most two login checks can consume Argon2
+// resources in this process. Session validation never acquires these slots.
+var passwordChecks = make(chan struct{}, 2)
+
+func acquirePasswordCheck(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case passwordChecks <- struct{}{}:
+		return func() { <-passwordChecks }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (a *Auth) lockAccount(ctx context.Context, username string) (func(), error) {
 	a.mu.Lock()
 	if a.verifying == nil {
 		a.verifying = map[string]*verifyLock{}
 	}
 	l := a.verifying[username]
 	if l == nil {
-		l = &verifyLock{}
+		l = &verifyLock{token: make(chan struct{}, 1)}
 		a.verifying[username] = l
 	}
 	l.refs++
 	a.mu.Unlock()
-	l.Lock()
-	return func() {
-		l.Unlock()
+	releaseRef := func() {
 		a.mu.Lock()
 		if l.refs--; l.refs == 0 {
 			delete(a.verifying, username)
 		}
 		a.mu.Unlock()
+	}
+	select {
+	case l.token <- struct{}{}:
+		return func() {
+			<-l.token
+			releaseRef()
+		}, nil
+	case <-ctx.Done():
+		releaseRef()
+		return nil, ctx.Err()
 	}
 }
 
@@ -140,7 +164,15 @@ func (a *Auth) Login(ctx context.Context, username, password, ip string) (string
 	if len(username) > 32 || len(password) > 4096 || len(ip) > 64 || username == "" {
 		return "", ErrBadCredentials
 	}
-	unlockAccount := a.lockAccount(username)
+	releaseCheck, err := acquirePasswordCheck(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer releaseCheck()
+	unlockAccount, err := a.lockAccount(ctx, username)
+	if err != nil {
+		return "", err
+	}
 	defer unlockAccount()
 	now := a.now()
 	keys := []string{"ip:" + ip, "account:" + username}

@@ -76,6 +76,11 @@ Administrator creation reads the password without echo from a terminal, or from
 standard input when piped. Never put passwords in command arguments. It refuses
 to create a second administrator. Failed commands return a nonzero exit status.
 
+Login password checks share a process-wide limit of two concurrent operations
+(about 128 MiB of Argon2 working memory at the default settings). Waiting requests
+honor cancellation, including waits for another attempt on the same account.
+Session validation does not wait for a password-check slot.
+
 For explicit local development, use `production: false` and `access_check: false`
 in a separate config file. The browser-facing service still needs HTTPS for its
 Secure session cookie; use a local TLS reverse proxy. This configuration must
@@ -93,6 +98,11 @@ be retrieved later. `.htpasswd` holds a salted SSHA hash accepted by Nginx; the
 database holds no site password. The application keeps the active release and
 two older releases. Permanent deletion requires a disabled site and exact slug
 confirmation. Backups, restore UI and alert delivery are outside the MVP.
+
+Permanent deletion commits the site metadata removal and its audit event in one
+SQLite transaction. If either write fails, the metadata and releases are retained.
+Files are removed after commit; startup recovery cleans up orphan site directories
+if the process stops before file cleanup finishes.
 
 Follow [the deployment runbook](deploy/RUNBOOK.md) for Cloudflare, Nginx, systemd,
 production checks and recovery. The [specification](report_hosting_technical_specification.md)

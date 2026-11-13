@@ -135,6 +135,23 @@ func (s *Store) DeleteSite(ctx context.Context, id string) error {
 	return changed(s.db.ExecContext(ctx, "DELETE FROM sites WHERE id=?", id))
 }
 
+// DeleteSiteWithAudit commits the deletion and its durable audit event together.
+// Files are removed by the service only after this transaction succeeds.
+func (s *Store) DeleteSiteWithAudit(ctx context.Context, id, actor string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = changed(tx.ExecContext(ctx, "DELETE FROM sites WHERE id=?", id)); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO audit_events(actor,action,site_id,created_at) VALUES(?,'delete',?,?)", actor, id, time.Now().UnixNano()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 const releaseColumns = "id,site_id,version,storage_path,checksum,status,created_at"
 
 func scanRelease(r scanner) (domain.Release, error) {
