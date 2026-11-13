@@ -114,4 +114,7 @@ pid=$(systemctl show --property=MainPID --value "$service")
 cmp -s "$binary" "/proc/$pid/exe" || fail 'The service is not running the installed executable.'
 printf '%s\n' "$release" > "$state/current-release.next"
 mv -f "$state/current-release.next" "$state/current-release"
+# The installed executable is now authoritative; remove the uploaded artifacts.
+# $incoming is built from a validated release name, so this cannot escape it.
+rm -rf -- "$incoming" || echo "WARNING: could not remove $incoming." >&2
 echo "Deployed $release."

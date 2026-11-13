@@ -169,6 +169,7 @@ class DeploymentTest(unittest.TestCase):
                          {"deploy.lock", "current-release"})
         self.assertEqual(list(self.binary.parent.iterdir()), [self.binary])
         self.assertEqual(self.db.read_text(), "synthetic database content")
+        self.assertFalse(self.incoming.exists())
 
     def test_failed_health_check_fails_job_without_restoring_previous_binary(self):
         result = self.deploy(expected=1, FAIL_HEALTH="1")

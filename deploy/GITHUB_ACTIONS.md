@@ -118,8 +118,10 @@ the environment file. Keep the installed unit consistent with
    the checksum and production configuration.
 5. Atomically replace the executable and restart only `report_hosting.service`.
 6. Require a protected HTTP response and confirm MainPID runs the installed
-   executable. Record the successful release. A restart causes brief admin
-   downtime; Nginx continues serving already published reports.
+   executable. Record the successful release and remove the uploaded
+   `/opt/report-hosting/releases/<commit>-<run>-<attempt>/` directory. A restart
+   causes brief admin downtime; Nginx continues serving already published
+   reports. A failed deployment keeps the upload for inspection.
 
 No deployment step reloads Nginx, changes DNS, rewrites production configuration,
 or restarts neighboring services. Update root-owned deployment helpers, units
