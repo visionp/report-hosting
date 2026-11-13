@@ -133,7 +133,7 @@ The words MUST, SHOULD, and MAY have the following meaning in this document: MUS
 | FR-09 | Each site MUST have separate HTTP Basic Authentication credentials. A site MUST NOT exist without credentials. |
 | FR-10 | The system MUST publish a new release by an atomic switch to the current release. |
 | FR-11 | The administrator MUST be able to view the site name, slug, URL, status, and last deployment time. |
-| FR-12 | The administrator MUST be able to change a site slug. The system MUST update the route by an atomic symbolic link change. |
+| FR-12 | The administrator MUST be able to change a site slug. The system MUST update the route in the order of section 8.4: create the new link, update the database, then remove the old link. A short time in which both names work is accepted. |
 | FR-13 | The administrator MUST be able to disable a site. The administrator MUST be able to enable a disabled site. The administrator MUST be able to delete a disabled site permanently, after the administrator types the site slug to confirm. |
 | FR-14 | The system MUST return a controlled error for an unknown site host. |
 | FR-15 | The system MUST keep the active release and the two previous releases for each site. The system MUST remove older releases after a successful deployment. A restore function MAY be added after the MVP. |
@@ -217,12 +217,12 @@ The current link points to the active release. Nginx reads files from this link.
 | Table | Main fields | Notes |
 | --- | --- | --- |
 | sites | id, name, slug, auth_username, status (active or disabled), current_release_id, created_at, updated_at | Store no plain-text password and no password hash. |
-| releases | id, site_id, version, storage_path, checksum, created_at | Use a unique version for each site. Calculate the checksum with SHA-256. |
+| releases | id, site_id, version, storage_path, checksum, status (ready or active), created_at | Use a unique version for each site. The status ready means that the release is on disk but is not yet active. Calculate the checksum with SHA-256. |
 | audit_events | id, actor, action, site_id, created_at | Record admin actions. Required in the MVP. Do not store passwords or tokens. |
-| admin_sessions | id_hash, created_at, last_seen_at, expires_at | Store server-side sessions. Store a hash of the session identifier. |
+| admin_sessions | id_hash, created_at, last_seen_at, expires_at | Store server-side sessions. Store a hash of the session identifier. expires_at is the absolute end: created_at plus 12 hours. The 30-minute idle timeout counts from last_seen_at. |
 | login_attempts | key, count, window_start, locked_until | Store failed-login counters for the lockout rule. |
 
-Store the password hash in the site .htpasswd file. Limit read access to the service account and Nginx. Store the SQLite database in a directory that Nginx cannot serve. The database is the source of truth for sites. The service MUST be able to rebuild the by-slug links from the database.
+Store the password hash in the site .htpasswd file. Limit read access to the service account and Nginx. Store the SQLite database in a directory that Nginx cannot serve. The database is the source of truth for sites and slugs. The service MUST be able to rebuild the by-slug links from the database. The only exception is the active release: the current symlink decides it (see the start recovery in section 8.2).
 
 # 8. Upload and Deployment Process
 
@@ -256,13 +256,20 @@ Before each deployment, check the free disk space. Reject the upload if the free
 1. In one SQLite transaction, set current_release_id and record the deployment result.
 1. Remove temporary files. Remove releases older than the active release and the two previous releases.
 
-At service start, compare the current symlink of each site with current_release_id. If they differ, set current_release_id to the release that the symlink points to. A release in the ready status without a symlink is not active and is safe to remove.
+At service start, run this recovery in this order:
+
+1. For each site, compare the current symlink with current_release_id. If they differ, set current_release_id (and the release status active) to the release that the symlink points to.
+1. Remove each release in the ready status that the current symlink does not point to. Remove its directory and its database row.
+1. For each active site, create the by-slug link if it is missing.
+1. Remove each by-slug link that has no matching active site in the database, or that points to a disabled site.
+
+Do not reverse this order. A reverse order can return a published release to an older release or reopen a disabled site. Step 4 also removes the old link that a failed slug change leaves behind.
 
 Allow only one deployment for each site at a time. Keep the previous release until the new release passes its checks. A failed upload or validation step MUST NOT change the active site.
 
 ## 8.3 Single HTML Upload
 
-For a single HTML upload, create a new release directory. Save the uploaded file as index.html. Then use the normal release deployment process.
+For a single HTML upload, save the uploaded file as index.html in a unique staging directory. Do not create a release directory at this step. Then continue the normal release deployment process from the step that checks index.html (section 8.2).
 
 ## 8.4 Slug Change
 
@@ -318,7 +325,7 @@ Add a check before authentication. If the directory /var/lib/visionp/by-slug/$sl
 
 Nginx does not need a reload when a site is created, renamed, disabled, enabled, or deleted. Go changes only symbolic links and files. Nginx reads them on each request. The Go process must not write to /etc/nginx and must not run commands as root. Use a root-owned, manual process to install the static Nginx configuration. Validate it with nginx -t before each reload.
 
-Protect the origin with Authenticated Origin Pulls. Enable it in the Cloudflare zone. In the new server blocks, set ssl_client_certificate to the Cloudflare origin-pull CA and ssl_verify_client to on. Nginx then rejects any connection that does not come from Cloudflare, on both IPv4 and IPv6 listeners.
+Protect the origin with zone-level Authenticated Origin Pulls that use a custom client certificate. Create the certificate for the partnersflex.space zone and upload it to Cloudflare. Do not use the shared Cloudflare certificate: it accepts requests from any Cloudflare account, so another customer could send traffic to the VPS and set the Host header to admin.partnersflex.space. In the new server blocks, set ssl_client_certificate to the CA of the custom certificate and ssl_verify_client to on. Nginx then rejects any connection that does not come from the partnersflex.space zone, on both IPv4 and IPv6 listeners. The application still validates the Cloudflare Access token, which does not depend on this control.
 
 Use the real_ip module with set_real_ip_from for the Cloudflare IPv4 and IPv6 ranges and real_ip_header CF-Connecting-IP. Rate limits then see the visitor address. Apply these settings to the new server blocks only. Do not change the settings of other services.
 
@@ -335,18 +342,18 @@ Cloudflare caches common static file types by default. A cached response could r
 
 | Area | Requirement |
 | --- | --- |
-| Admin access | Use two layers. Cloudflare Access restricts access to the administrator identity. The application also requires an admin login with an argon2id password hash. Do not allow public registration. The application MUST validate the Cloudflare Access token in production: the signature (with Cloudflare public keys), the issuer, the audience, and the expiry. Provide a configuration switch to disable this check for local development only. |
+| Admin access | Use two layers. Cloudflare Access restricts access to the administrator identity. The application also requires an admin login with an argon2id password hash. Do not allow public registration. The application MUST validate the Cloudflare Access token in production: the signature (with Cloudflare public keys), the issuer, the audience, and the expiry. Provide a configuration switch to disable this check for local development only. The default value is that the check is on. The service MUST NOT start in production mode with the check off. |
 | Admin login | Lock a login for 15 minutes after 5 failed attempts in 15 minutes. Count attempts for each source address and for the account. Store the counters in SQLite. Create the first administrator with a setup command (for example, visionp admin create). The command writes an argon2id hash with memory 64 MiB, 3 iterations, and parallelism 2. Make these values configurable. |
-| Session cookies | Use Secure, HttpOnly, SameSite cookies. Use the __Host- prefix, Path=/, and no Domain attribute. Do not set a parent-domain cookie. Keep sessions on the server in SQLite. Use an idle timeout of 30 minutes and an absolute lifetime of 12 hours. Issue a new session identifier after each successful login. Delete the session at logout. |
+| Session cookies | Use Secure, HttpOnly, and SameSite=Strict cookies. Use the __Host- prefix, Path=/, and no Domain attribute. Do not set a parent-domain cookie. Keep sessions on the server in SQLite. Use an idle timeout of 30 minutes and an absolute lifetime of 12 hours. Issue a new session identifier after each successful login. Delete the session at logout. |
 | Request validation | Validate Host and Origin. Add CSRF tokens to state-changing requests. Do not rely on SameSite alone, because hosted sites and the admin panel are same-site. Do not enable wildcard CORS. Forbid framing of the admin panel (see section 9.3). A hosted site is same-site with the admin panel, so a site could otherwise show the panel in a frame and trick the administrator into a click. |
-| Site access | Use separate Basic Auth credentials for each site. Generate each password with a cryptographic random source. Use at least 20 characters. Do not store plain-text passwords. |
+| Site access | Use separate Basic Auth credentials for each site. Generate each password with a cryptographic random source (Go crypto/rand). Use at least 20 characters from an alphabet of at least 64 symbols, for example A-Z, a-z, 0-9, hyphen, and underscore. Do not use a colon. This gives about 120 bits of entropy. Do not store plain-text passwords. |
 | Password hashes | Nginx checks the password on every request. Use the {SSHA} format. The Nginx auth_basic documentation lists it. Do not use bcrypt: it depends on the crypt() function of the operating system. Generate the file with the Go service, and verify with an integration test that Nginx accepts the correct password and rejects a wrong one. A long random password makes a fast hash acceptable. If a person-chosen password is added later, change the scheme and raise the hash cost. |
 | Site username | Allow only lower-case letters, digits, and hyphens. Reject colon, space, newline, and all other characters. Replace the .htpasswd file by writing a temporary file and by rename() (see section 8.5). |
 | Site existence | An unknown slug returns 404. An existing site returns 401 before login. A visitor can therefore find existing slugs. This is accepted in the MVP. Do not treat a slug as a secret. |
 | Upload isolation | Use a staging directory. Reject archive traversal, links, special files, and unsafe paths. |
 | File access | Run Go as a dedicated service user. Give Nginx read-only access to released files. Keep secrets and the database outside the web root. |
 | Dotfiles | Deny requests for hidden files. Do not serve .htpasswd, database files, logs, or generated files. |
-| Rate limits | Apply the login lockout above. Limit uploads to 10 requests per minute for each source address with the Nginx limit_req module. Set a configurable limit for failed site Basic Auth requests. |
+| Rate limits | Apply the login lockout above. Limit uploads to 10 requests per minute for each source address with the Nginx limit_req module. Limit all requests to a hosted site to 30 requests per second for each source address, with a burst of 60. The limit_req module counts all requests, not only failed logins. Make the values configurable. A random 20-character password makes guessing impractical, so a separate limit for failed Basic Auth requests is not required. |
 | Logs | Do not log passwords, session tokens, full Authorization headers, or the Cloudflare Access headers Cf-Access-Jwt-Assertion and Cf-Access-Authenticated-User-Email. |
 | Site isolation | Use one subdomain per site. Keep admin cookies host-only with the __Host- prefix. Treat uploaded HTML and JavaScript as untrusted browser content. |
 | Cache | Follow section 9.4. |
@@ -377,7 +384,7 @@ Use server-rendered HTML templates. Use HTMX for small updates. The MVP UI shoul
 | PATCH | /api/sites/{id} | Change site name or slug. |
 | POST | /api/sites/{id}/disable | Disable a site. |
 | POST | /api/sites/{id}/enable | Enable a site. |
-| DELETE | /api/sites/{id} | Delete a disabled site permanently. |
+| DELETE | /api/sites/{id} | Delete a disabled site permanently. The request body MUST contain the exact slug. |
 | POST | /api/sites/{id}/deploy | Upload and deploy a new release. |
 | POST | /api/sites/{id}/credentials | Change the username or regenerate the password. |
 | GET | /api/sites/{id}/releases | List releases. Optional for the MVP. |
@@ -385,11 +392,13 @@ Use server-rendered HTML templates. Use HTMX for small updates. The MVP UI shoul
 
 All admin API routes must require an authenticated session. State-changing routes must use CSRF protection. Return clear validation errors. Do not expose server paths or internal error details to the browser.
 
+The server MUST reject a delete request if the body does not contain the exact slug of the site. Do not rely on the browser to check it. A permanent delete runs in this order: remove the by-slug link, delete the database row, then delete the files.
+
 # 12. Deployment and Operations
 
 ## 12.1 Service Accounts and Permissions
 
-Run the Go application as a dedicated visionp user. Do not run it as root. Use a dedicated group to grant Nginx read access to released website files, the by-slug links, and the .htpasswd files. Give write access only to the paths that the Go service needs. Nginx needs read access to the sites directory, the by-slug links, and the .htpasswd files. Do not give the group access to db/ and staging/. Set db/ and staging/ to mode 0700 for the visionp user. Do not add other services on the VPS to the visionp group.
+Run the Go application as a dedicated visionp user. Do not run it as root. Use a dedicated group to grant Nginx read access to released website files, the by-slug links, and the .htpasswd files. Give write access only to the paths that the Go service needs. Nginx needs read access to the sites directory, the by-slug links, and the .htpasswd files. Do not give the group access to db/ and staging/. Set db/ and staging/ to mode 0700 for the visionp user. Do not add other services on the VPS to the visionp group. The Go service creates release files. Use umask 027, or set explicit modes: 0750 for directories and 0640 for files. Without these modes, Nginx cannot read a new release and returns 403. Test this with a new release.
 
 ## 12.2 systemd
 
@@ -444,7 +453,7 @@ Keep business rules in service packages. Keep HTTP handlers thin. Keep the routi
 
 | Phase | Deliverables |
 | --- | --- |
-| Phase 1 - VPS and network | Add partnersflex.space to Cloudflare. Create the wildcard DNS record. Install the origin certificate. Add the new Nginx server blocks. Create storage paths and the systemd unit. Configure the Cloudflare Access application and the Cache Rule. |
+| Phase 1 - VPS and network | Add partnersflex.space to Cloudflare. Create the wildcard DNS record. Install the origin certificate. Add the new Nginx server blocks. Create storage paths and the systemd unit. Configure the Cloudflare Access application and the Cache Rule. Enable zone-level Authenticated Origin Pulls with a custom certificate and configure the Nginx client certificate check. |
 | Phase 2 - Backend core | Create the Go application. Add SQLite migrations. Implement site CRUD, configuration loading, and filesystem storage. |
 | Phase 3 - Upload and deployment | Add ZIP validation and extraction. Add single-HTML upload. Implement release creation, atomic activation, and release cleanup. |
 | Phase 4 - Routing and access | Manage the by-slug links. Generate credentials and the .htpasswd files. Add the missing-site check. Test {SSHA} authentication against the target Nginx. |
@@ -481,10 +490,10 @@ Keep business rules in service packages. Keep HTTP handlers thin. Keep the routi
 | AC-23 | Responses from admin.partnersflex.space contain frame-ancestors 'none' and X-Frame-Options: DENY. A hosted site cannot show the admin panel in a frame. |
 | AC-24 | A username with a colon, a space, a newline, or another prohibited character is rejected. The .htpasswd file stays valid. |
 | AC-25 | An admin session ends after 30 minutes without use and after 12 hours in total. A login issues a new session identifier. |
-| AC-26 | A direct connection to the VPS without the Cloudflare client certificate is rejected, on IPv4 and IPv6. |
+| AC-26 | A direct connection to the VPS without the zone client certificate is rejected, on IPv4 and IPv6. A connection that uses the shared Cloudflare certificate is also rejected. |
 | AC-27 | Nginx accepts the correct {SSHA} site password and rejects a wrong one. |
-| AC-28 | A request without a valid Cloudflare Access token is rejected by the application. |
-| AC-29 | After a failure between the symlink switch and the database update, the service start corrects current_release_id. |
+| AC-28 | With the default configuration, a request without a valid Cloudflare Access token is rejected by the application. |
+| AC-29 | After a failure between the symlink switch and the database update, the service start corrects current_release_id, removes unused ready releases, and then rebuilds the by-slug links in the order of section 8.2. A disabled site stays disabled. A failed slug change leaves no old link. |
 
 # 16. Risks and Design Decisions
 
@@ -522,7 +531,7 @@ Keep business rules in service packages. Keep HTTP handlers thin. Keep the routi
 | Release retention | Active release and two previous releases. |
 | Cache | Cloudflare Bypass cache plus no-store headers. |
 | TLS | Cloudflare proxy, Universal SSL, and Origin Certificate. TLS 1.2 and 1.3 only. |
-| Origin protection | Authenticated Origin Pulls and real_ip with Cloudflare ranges (IPv4 and IPv6). |
+| Origin protection | Zone-level Authenticated Origin Pulls with a custom certificate, and real_ip with Cloudflare ranges (IPv4 and IPv6). |
 | Site password hash | {SSHA} in htpasswd, written by the Go service. |
 | Admin sessions | Server-side sessions in SQLite. Idle timeout 30 minutes. Absolute lifetime 12 hours. |
 | Audit log | Required in the MVP. |
@@ -557,7 +566,7 @@ Keep business rules in service packages. Keep HTTP handlers thin. Keep the routi
 
 Build the MVP as one Go application on the existing VPS. Use Nginx to serve all static site files. Use Cloudflare for the partnersflex.space DNS and edge TLS. Use SQLite for metadata and local storage for site releases.
 
-Keep the first release small. Implement safe ZIP handling, atomic deployment, per-site access control, and strict separation between the admin panel and website content. Add backups, alerting, release restore, and audit history after the core workflow is stable.
+Keep the first release small. Implement safe ZIP handling, atomic deployment, per-site access control, and strict separation between the admin panel and website content. Add backups, alerting, and release restore after the core workflow is stable. The audit log is part of the MVP.
 
 > **Definition of done**
 > An administrator can sign in, create a site, upload a ZIP or HTML file, receive the generated site credentials, and publish the site at its assigned partnersflex.space subdomain. The site works over HTTPS. Other visionp.uk services remain unchanged.
