@@ -42,27 +42,91 @@ func (v *accessVerifier) Verify(ctx context.Context, raw string) error {
 	return err
 }
 
+const (
+	keysTTL       = 5 * time.Minute
+	keysMinReload = time.Minute      // minimum gap between refetches for an unknown kid
+	keysBackoff   = 30 * time.Second // pause after a failed fetch
+)
+
 type RemoteKeys struct {
-	Team    string
-	mu      sync.Mutex
+	Team string
+	// CertsURL and HTTPClient override the defaults (used by tests).
+	CertsURL   string
+	HTTPClient *http.Client
+
+	fetchMu sync.Mutex // serializes network fetches; never held while mu is wanted by readers
+	mu      sync.Mutex // guards the fields below
 	keys    map[string]*rsa.PublicKey
 	expires time.Time
+	fetched time.Time
+	retry   time.Time // no fetch before this time after a failure
+}
+
+var errUnknownKey = errors.New("unknown Access key")
+
+// lookup returns the cached key, or whether a fetch is allowed right now.
+func (k *RemoteKeys) lookup(kid string, now time.Time) (key *rsa.PublicKey, fetch bool, err error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	fresh := now.Before(k.expires)
+	if fresh {
+		if key := k.keys[kid]; key != nil {
+			return key, false, nil
+		}
+	}
+	if now.Before(k.retry) {
+		return nil, false, errors.New("Access keys unavailable")
+	}
+	// Expired cache, or a fresh one that lacks this kid (key rotation): reload,
+	// but not more often than keysMinReload so bogus kids cannot force fetches.
+	if !fresh || !now.Before(k.fetched.Add(keysMinReload)) {
+		return nil, true, nil
+	}
+	return nil, false, errUnknownKey
 }
 
 func (k *RemoteKeys) Key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
-	k.mu.Lock()
-	defer k.mu.Unlock()
-	if time.Now().Before(k.expires) {
-		if key := k.keys[kid]; key != nil {
-			return key, nil
-		}
-		return nil, errors.New("unknown Access key")
+	if key, fetch, err := k.lookup(kid, time.Now()); key != nil || !fetch {
+		return key, err
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+k.Team+"/cdn-cgi/access/certs", nil)
+	// The network call runs outside mu; fetchMu makes waiters re-check the
+	// refreshed cache or backoff instead of each issuing their own request.
+	k.fetchMu.Lock()
+	defer k.fetchMu.Unlock()
+	if key, fetch, err := k.lookup(kid, time.Now()); key != nil || !fetch {
+		return key, err
+	}
+	keys, err := k.fetch(ctx)
+	now := time.Now()
+	k.mu.Lock()
+	if err != nil {
+		if ctx.Err() == nil {
+			k.retry = now.Add(keysBackoff)
+		}
+		k.mu.Unlock()
+		return nil, err
+	}
+	k.keys, k.fetched, k.expires, k.retry = keys, now, now.Add(keysTTL), time.Time{}
+	k.mu.Unlock()
+	if key := keys[kid]; key != nil {
+		return key, nil
+	}
+	return nil, errUnknownKey
+}
+
+func (k *RemoteKeys) fetch(ctx context.Context) (map[string]*rsa.PublicKey, error) {
+	url := k.CertsURL
+	if url == "" {
+		url = "https://" + k.Team + "/cdn-cgi/access/certs"
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect rejected") }}
+	client := k.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect rejected") }}
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -96,10 +160,5 @@ func (k *RemoteKeys) Key(ctx context.Context, kid string) (*rsa.PublicKey, error
 		}
 		keys[j.Kid] = &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: ex}
 	}
-	k.keys = keys
-	k.expires = time.Now().Add(5 * time.Minute)
-	if key := keys[kid]; key != nil {
-		return key, nil
-	}
-	return nil, errors.New("unknown Access key")
+	return keys, nil
 }

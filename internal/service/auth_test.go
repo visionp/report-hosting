@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"report_hosting/internal/config"
 	"report_hosting/internal/repository"
@@ -119,5 +120,32 @@ func TestLockoutPerAddressAndAccount(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestLoginPurgesStaleAttemptsAndSessions(t *testing.T) {
+	a, now := testAuth(t)
+	ctx := context.Background()
+	for i := 0; i < 20; i++ {
+		if _, err := a.Login(ctx, "bogus"+string(rune('a'+i)), "x", fmt.Sprintf("10.1.0.%d", i)); !errors.Is(err, ErrBadCredentials) {
+			t.Fatalf("attempt %d: %v", i, err)
+		}
+	}
+	id, err := a.Login(ctx, "admin", "correct-password", "10.0.0.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	*now = now.Add(13 * time.Hour) // past failure window, idle timeout and session expiry
+	if _, err = a.Login(ctx, "admin", "correct-password", "10.0.0.2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Store.GetSession(ctx, sessionHash(id)); err == nil {
+		t.Fatal("expired session was not purged")
+	}
+	if until, err := a.Store.LockedUntil(ctx, "account:boguse"); err != nil || !until.IsZero() {
+		t.Fatalf("stale lock state: %v %v", until, err)
+	}
+	if err := a.Store.PurgeStale(ctx, *now, failureWindow, sessionIdle); err != nil {
+		t.Fatal(err)
 	}
 }
