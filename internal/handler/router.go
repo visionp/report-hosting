@@ -1,13 +1,12 @@
 package handler
 
 import (
+	"archive/zip"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -69,13 +68,17 @@ func (h *router) serve(w http.ResponseWriter, r *http.Request) {
 		h.login(w, r)
 		return
 	}
-	if r.URL.Path == "/static/htmx.min.js" && r.Method == "GET" {
-		data, err := web.Assets.ReadFile("static/htmx.min.js")
+	staticTypes := map[string]string{
+		"/static/htmx.min.js": "text/javascript; charset=utf-8",
+		"/static/styles.css":  "text/css; charset=utf-8",
+	}
+	if contentType, ok := staticTypes[r.URL.Path]; ok && r.Method == "GET" {
+		data, err := web.Assets.ReadFile(strings.TrimPrefix(r.URL.Path, "/"))
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Content-Type", contentType)
 		w.Write(data)
 		return
 	}
@@ -149,16 +152,18 @@ func (h *router) fail(w http.ResponseWriter, err error) {
 		status, code = 404, "not_found"
 	case errors.As(err, &large), errors.Is(err, storage.ErrLimitExceeded):
 		status, code = 413, "upload_too_large"
+	case errors.Is(err, storage.ErrInsufficientDisk):
+		status, code = 507, "insufficient_storage"
 	case errors.Is(err, domain.ErrDuplicateSlug):
 		status, code = 409, "duplicate_slug"
-	case errors.Is(err, domain.ErrInvalidSlug), errors.Is(err, domain.ErrReservedSlug), errors.Is(err, domain.ErrInvalidUsername), errors.Is(err, domain.ErrSlugConfirmation), errors.Is(err, domain.ErrSiteNotDisabled), errors.Is(err, storage.ErrUnsafePath), errors.Is(err, storage.ErrSpecialFile), errors.Is(err, storage.ErrDuplicatePath), errors.Is(err, storage.ErrNoIndex), errors.Is(err, storage.ErrBadLayout), errors.Is(err, storage.ErrEmptyUpload):
+	case errors.Is(err, domain.ErrInvalidSlug), errors.Is(err, domain.ErrReservedSlug), errors.Is(err, domain.ErrInvalidUsername), errors.Is(err, domain.ErrNameRequired), errors.Is(err, zip.ErrFormat), errors.Is(err, domain.ErrSlugConfirmation), errors.Is(err, domain.ErrSiteNotDisabled), errors.Is(err, storage.ErrUnsafePath), errors.Is(err, storage.ErrSpecialFile), errors.Is(err, storage.ErrDuplicatePath), errors.Is(err, storage.ErrNoIndex), errors.Is(err, storage.ErrBadLayout), errors.Is(err, storage.ErrEmptyUpload):
 		status, code = 400, "invalid_input"
 	}
 	writeJSON(w, status, map[string]string{"error": code})
 }
 func (h *router) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		render(w, `<h1>Report hosting</h1><form method="post"><label>Username <input name="username" required></label><label>Password <input type="password" name="password" required></label><button>Sign in</button></form>`, nil)
+		render(w, "login", nil)
 		return
 	}
 	if r.Method != "POST" {
@@ -359,12 +364,5 @@ func (h *router) upload(r *http.Request, id string) (domain.Release, error) {
 		return h.Sites.DeployZip(r.Context(), "admin", id, tmp.Name())
 	default:
 		return domain.Release{}, storage.ErrBadLayout
-	}
-}
-func render(w http.ResponseWriter, body string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	t := template.Must(template.New("page").Parse(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Report hosting</title><style>body{font:16px system-ui;max-width:900px;margin:3rem auto;padding:1rem}input,button{padding:.6rem;margin:.4rem}label{display:block}article{padding:1rem;border:1px solid #ddd;margin:1rem 0}code{overflow-wrap:anywhere}</style></head><body>` + body + `</body></html>`))
-	if err := t.Execute(w, data); err != nil {
-		fmt.Fprintln(w, "render error")
 	}
 }

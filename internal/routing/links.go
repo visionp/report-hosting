@@ -3,6 +3,7 @@ package routing
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"report_hosting/internal/domain"
@@ -73,6 +74,10 @@ func (l Links) List() (map[string]string, error) {
 	}
 	return out, nil
 }
+
+// ErrStaleLink reports that a rename committed but the old link could not be removed.
+var ErrStaleLink = errors.New("old routing link not removed")
+
 func (l Links) Rename(oldSlug, newSlug, siteID string, commit func() error) error {
 	if oldSlug == newSlug {
 		return commit()
@@ -84,5 +89,8 @@ func (l Links) Rename(oldSlug, newSlug, siteID string, commit func() error) erro
 		_ = l.Remove(newSlug)
 		return err
 	}
-	return l.Remove(oldSlug)
+	if err := l.Remove(oldSlug); err != nil {
+		return fmt.Errorf("%w: %v", ErrStaleLink, err)
+	}
+	return nil
 }

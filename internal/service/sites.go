@@ -12,6 +12,7 @@ import (
 	"report_hosting/internal/repository"
 	"report_hosting/internal/routing"
 	"report_hosting/internal/storage"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,8 +83,8 @@ func (s *Sites) Create(ctx context.Context, actor, name, slug string) (domain.Si
 	if err := domain.ValidateSlug(slug, s.Reserved); err != nil {
 		return empty, "", err
 	}
-	if name == "" {
-		return empty, "", errors.New("site name required")
+	if strings.TrimSpace(name) == "" {
+		return empty, "", domain.ErrNameRequired
 	}
 	if _, err := s.Store.GetSiteBySlug(ctx, slug); err == nil {
 		return empty, "", domain.ErrDuplicateSlug
@@ -131,6 +132,9 @@ func (s *Sites) Rename(ctx context.Context, actor, id, name, slug string) error 
 	if err := domain.ValidateSlug(slug, s.Reserved); err != nil {
 		return err
 	}
+	if strings.TrimSpace(name) == "" {
+		return domain.ErrNameRequired
+	}
 	v, err := s.Store.GetSite(ctx, id)
 	if err != nil {
 		return err
@@ -140,6 +144,11 @@ func (s *Sites) Rename(ctx context.Context, actor, id, name, slug string) error 
 		err = commit()
 	} else {
 		err = s.Links.Rename(v.Slug, slug, id, commit)
+	}
+	// The rename is committed; a leftover old link is repaired by startup recovery.
+	if errors.Is(err, routing.ErrStaleLink) {
+		s.logger().ErrorContext(ctx, "old routing link not removed", "action", "rename", "site_id", id)
+		err = nil
 	}
 	if err != nil {
 		return err
@@ -197,13 +206,16 @@ func (s *Sites) Delete(ctx context.Context, actor, id, confirmSlug string) error
 	if err = s.Links.Remove(v.Slug); err != nil {
 		return err
 	}
-	if err = s.record(ctx, actor, "delete", id); err != nil {
-		return err
-	}
+	// Audit only after the database delete succeeded, so the log never claims a
+	// deletion that did not happen. The audit table has no FK to sites.
 	if err = s.Store.DeleteSite(ctx, id); err != nil {
 		return err
 	}
-	return os.RemoveAll(s.Layout.SiteDir(id))
+	rmErr := os.RemoveAll(s.Layout.SiteDir(id))
+	if err = s.record(context.WithoutCancel(ctx), actor, "delete", id); err != nil {
+		return err
+	}
+	return rmErr
 }
 func (s *Sites) RegenerateCredentials(ctx context.Context, actor, id, username string) (string, error) {
 	s.mu.Lock()
