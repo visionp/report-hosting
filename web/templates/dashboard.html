@@ -1,86 +1,326 @@
 {{define "content"}}
-<script src="/static/htmx.min.js" defer></script>
-<button hx-get="/" hx-target="body" hx-swap="innerHTML">Refresh sites</button>
-
-<h1>Report hosting</h1>
-{{if .Password}}
-  <article>
-    <strong>Save this password now. It will not be shown again.</strong>
-    <p><code>{{.Password}}</code></p>
-  </article>
-{{end}}
-
-<form action="/logout" method="post">
-  <input type="hidden" name="csrf" value="{{.CSRF}}">
-  <button>Sign out</button>
-</form>
-
-<h2>Create site</h2>
-<form action="/sites/create" method="post">
-  <input type="hidden" name="csrf" value="{{.CSRF}}">
-  <label>
-    Name
-    <input name="name" required>
-  </label>
-  <label>
-    Address
-    <input name="slug" required maxlength="32">
-  </label>
-  <button>Create</button>
-</form>
-
-{{range .Sites}}
-  <article>
-    <h2><a href="/sites/{{.ID}}">{{.Name}}</a></h2>
-    <p>
-      <a href="https://{{.Slug}}.partnersflex.space" target="_blank" rel="noopener">
-        {{.Slug}}.partnersflex.space
-      </a>
-      · {{.Status}}
-    </p>
-    <p>Username: {{.AuthUsername}} · Updated {{.UpdatedAt}} · Release {{.CurrentReleaseID}}</p>
-
-    <form action="/sites/{{.ID}}/deploy" method="post" enctype="multipart/form-data">
-      <input type="hidden" name="csrf" value="{{$.CSRF}}">
-      <input type="file" name="file" accept=".zip,.html" required>
-      <button>Publish</button>
-    </form>
-
-    <form action="/sites/{{.ID}}/rename" method="post">
-      <input type="hidden" name="csrf" value="{{$.CSRF}}">
-      <input name="name" value="{{.Name}}" required>
-      <input name="slug" value="{{.Slug}}" required>
-      <button>Update name/address</button>
-    </form>
-
-    <form action="/sites/{{.ID}}/credentials" method="post">
-      <input type="hidden" name="csrf" value="{{$.CSRF}}">
-      <input name="username" value="{{.AuthUsername}}" required>
-      <button>Generate new password</button>
-    </form>
-
-    {{if eq .Status "active"}}
-      <form action="/sites/{{.ID}}/disable" method="post">
-        <input type="hidden" name="csrf" value="{{$.CSRF}}">
-        <button>Disable</button>
-      </form>
-
-    {{else}}
-      <form action="/sites/{{.ID}}/enable" method="post">
-        <input type="hidden" name="csrf" value="{{$.CSRF}}">
-        <button>Enable</button>
-      </form>
-      <form action="/sites/{{.ID}}/delete" method="post">
-        <input type="hidden" name="csrf" value="{{$.CSRF}}">
-        <label>
-          Type {{.Slug}} to permanently delete
-          <input name="slug" required>
-        </label>
-        <button>Delete permanently</button>
-      </form>
-    {{end}}
-  </article>
-{{else}}
-  <p>No sites yet.</p>
-{{end}}
+  <script src="/static/htmx.min.js" defer> </script>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/"><img src="/static/flex-partners-white.svg" alt="Flex Partners" width="164" height="42"><span>REPORT HOSTING</span></a>
+      <div class="workspace-card">
+        <span class="workspace-avatar">
+          F
+        </span>
+        <div>
+          <strong>Flex workspace</strong>
+          <small>Private hosting</small>
+        </div>
+        <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+      </div>
+      <span class="nav-label">
+        WORKSPACE
+      </span>
+      <nav aria-label="Main navigation">
+        <a class="nav-item selected" href="/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg> Websites <span class="nav-count">{{.Total}}</span></a>
+        <a class="nav-item" href="/#create-site"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Create a website</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="private-note">
+          <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+          <strong>Made for private sharing</strong>
+          <p>Each website has its own address and access credentials.</p>
+        </div>
+        <div class="profile">
+          <span class="profile-avatar">
+            A
+          </span>
+          <div>
+            <strong>Administrator</strong>
+            <small>Workspace management</small>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <div class="breadcrumb">
+          Workspace
+          <span>
+            /
+          </span>
+          <strong>Websites</strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="domain-label">
+            <span class="status-dot">
+            </span>
+            partnersflex.space
+          </span>
+          <form action="/logout" method="post">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="button quiet" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-exit"/></svg> Sign out</button>
+          </form>
+        </div>
+      </header>
+      <main id="main-content" class="workspace-main">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">
+              REPORT HOSTING
+            </span>
+            <h1>{{if .Detail}}Website details{{else}}Your websites{{end}}</h1>
+            <p>Publish, share and keep every report in one place.</p>
+          </div>
+          <a href="#create-site" class="button primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Create a website</a>
+        </div>
+        {{if .Error}}
+          <div class="notice danger" role="alert">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+            <div>
+              <strong>We couldn't complete that action</strong>
+              <p>{{.Error}}</p>
+            </div>
+          </div>
+        {{end}}
+        {{if .Password}}
+          <section class="notice success" role="status">
+            <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+            <div>
+              <strong>Save this password now. It will not be shown again.</strong>
+              <p>Share it only with the people who need access.</p>
+              <code class="generated-password">{{.Password}}</code>
+            </div>
+          </section>
+        {{end}}
+        <section class="stats-grid" aria-label="Website overview">
+          <div class="stat-card">
+            <span>
+              Total websites
+              <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>
+            </span>
+            <strong>{{.Total}}</strong>
+            <small>Your published and draft websites</small>
+          </div>
+          <div class="stat-card">
+            <span>
+              Active
+              <span class="status-dot">
+              </span>
+            </span>
+            <strong>{{.Active}}</strong>
+            <small>Enabled and ready for publishing</small>
+          </div>
+          <div class="stat-card">
+            <span>
+              Disabled
+              <span class="status-dot muted-dot">
+              </span>
+            </span>
+            <strong>{{.Disabled}}</strong>
+            <small>Access is currently paused</small>
+          </div>
+        </section>
+        <div class="workspace-grid">
+          <section class="sites-section" aria-label="Websites">
+            <div class="section-heading">
+              <h2>{{if .Detail}}Website overview{{else}}Website library{{end}}</h2>
+              <button class="button quiet" hx-get="/" hx-target="body" hx-swap="innerHTML" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Refresh sites</button>
+            </div>
+            {{if .Detail}}
+              <a class="back-link" href="/">← All websites</a>
+            {{else}}
+              <div class="library-tools">
+                <nav class="filter-tabs" aria-label="Filter websites">
+                  <a href="/" {{if not .Status}}aria-current="page"{{end}}>All websites</a>
+                  <a href="/?status=active" {{if eq .Status "active"}}aria-current="page"{{end}}>Active</a>
+                  <a href="/?status=disabled" {{if eq .Status "disabled"}}aria-current="page"{{end}}>Disabled</a>
+                </nav>
+                <form class="search-form" method="get" action="/">
+                  <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                  <input type="search" name="q" value="{{.Query}}" aria-label="Search websites" placeholder="Search websites…">
+                  {{if .Status}}
+                    <input type="hidden" name="status" value="{{.Status}}">
+                  {{end}}
+                  <button type="submit" class="search-submit" aria-label="Search"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+                </form>
+              </div>
+            {{end}}
+            <div class="site-list">
+              {{range .Sites}}
+                <article class="site-card">
+                  <div class="site-heading">
+                    <span class="site-avatar">
+                      {{initial .Name}}
+                    </span>
+                    <div class="site-title">
+                      <h3><a href="/sites/{{.ID}}">{{.Name}}</a></h3>
+                      <a class="site-url" href="https://{{.Slug}}.partnersflex.space" target="_blank" rel="noopener">{{.Slug}}.partnersflex.space <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+                    </div>
+                    <span class="badge {{if eq .Status "active"}}green{{else}}neutral{{end}}">
+                      <span class="status-dot">
+                      </span>
+                      {{if eq .Status "active"}}
+                        Active
+                      {{else}}
+                        Disabled
+                      {{end}}
+                    </span>
+                  </div>
+                  <div class="site-meta">
+                    <span>
+                      <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+                      Password protected
+                    </span>
+                    <span>
+                      {{if .CurrentReleaseID}}
+                        Published
+                      {{else}}
+                        No release yet
+                      {{end}}
+                    </span>
+                    <span>
+                      Updated {{date .UpdatedAt}}
+                    </span>
+                  </div>
+                  <form class="upload-form" action="/sites/{{.ID}}/deploy" method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                    <div class="upload-field">
+                      <label for="upload-{{.ID}}">
+                        <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+                        Upload a new release
+                      </label>
+                      <input id="upload-{{.ID}}" type="file" name="file" accept=".zip,.html" required aria-describedby="upload-help-{{.ID}}">
+                      <small id="upload-help-{{.ID}}">ZIP or HTML · up to {{$.UploadLimit}}</small>
+                    </div>
+                    <button class="button primary" type="submit">Publish <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+                  </form>
+                  <details class="site-settings" {{if $.Detail}}open{{end}}>
+                    <summary>
+                      Manage website
+                      <span class="summary-plus">
+                        +
+                      </span>
+                    </summary>
+                    <div class="settings-content">
+                      <form action="/sites/{{.ID}}/rename" method="post" class="settings-form">
+                        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                        <h4>Name & address</h4>
+                        <div class="field-pair">
+                          <label class="field">
+                            <span>
+                              Site name
+                            </span>
+                            <input name="name" value="{{.Name}}" required>
+                          </label>
+                          <label class="field">
+                            <span>
+                              Site address
+                            </span>
+                            <input name="slug" value="{{.Slug}}" required maxlength="32">
+                          </label>
+                        </div>
+                        <button class="button secondary" type="submit">Update name/address</button>
+                      </form>
+                      <form action="/sites/{{.ID}}/credentials" method="post" class="settings-form">
+                        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                        <h4>Access credentials</h4>
+                        <p class="muted">Generating a new password immediately replaces the previous one.</p>
+                        <label class="field">
+                          <span>
+                            Site username
+                          </span>
+                          <input name="username" value="{{.AuthUsername}}" required maxlength="32" autocomplete="off">
+                        </label>
+                        <button class="button secondary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Generate new password</button>
+                      </form>
+                      <div class="availability-row">
+                        <div>
+                          <h4>Website availability</h4>
+                          <p class="muted">{{if eq .Status "active"}}Pause access without removing your files.{{else}}Your files are kept. Enable to restore access.{{end}}</p>
+                        </div>
+                        {{if eq .Status "active"}}
+                          <form action="/sites/{{.ID}}/disable" method="post">
+                            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                            <button class="button secondary" type="submit">Disable</button>
+                          </form>
+                        {{else}}
+                          <form action="/sites/{{.ID}}/enable" method="post">
+                            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                            <button class="button secondary" type="submit">Enable</button>
+                          </form>
+                        {{end}}
+                      </div>
+                      {{if eq .Status "disabled"}}
+                        <form action="/sites/{{.ID}}/delete" method="post" class="delete-form">
+                          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                          <h4>Delete website</h4>
+                          <p>This permanently removes the website and all its releases.</p>
+                          <label class="field">
+                            <span>
+                              Type {{.Slug}} to permanently delete
+                            </span>
+                            <input name="slug" required autocomplete="off">
+                          </label>
+                          <button class="button danger-button" type="submit">Delete permanently</button>
+                        </form>
+                      {{end}}
+                    </div>
+                  </details>
+                </article>
+              {{else}}
+                <div class="empty-state">
+                  <span class="empty-icon">
+                    <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
+                  </span>
+                  <h3>{{if or .Query .Status}}No matching websites{{else}}A space for your next report{{end}}</h3>
+                  <p>{{if or .Query .Status}}Try another search or view all websites.{{else}}Create your first website, upload a report and share it privately.{{end}}</p>
+                  <a class="button secondary" href="{{if or .Query .Status}}/{{else}}#create-site{{end}}">{{if or .Query .Status}}View all websites{{else}}Create your first website{{end}}<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+                </div>
+              {{end}}
+            </div>
+          </section>
+          <aside class="create-column">
+            <section class="panel create-panel" id="create-site">
+              <span class="panel-icon">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+              </span>
+              <h2>Create a website</h2>
+              <p class="muted">A new home for your report. Ready in a few clicks.</p>
+              <form action="/sites/create" method="post">
+                <input type="hidden" name="csrf" value="{{.CSRF}}">
+                <label class="field">
+                  <span>
+                    Name
+                  </span>
+                  <input name="name" value="{{.CreateName}}" placeholder="e.g. Quarterly report" required>
+                </label>
+                <label class="field">
+                  <span>
+                    Address
+                  </span>
+                  <input name="slug" aria-label="Address" aria-describedby="create-address-help" value="{{.CreateSlug}}" placeholder="quarterly-report" required maxlength="32" spellcheck="false" autocapitalize="none">
+                  <small id="create-address-help">Your address on partnersflex.space</small>
+                </label>
+                <button class="button primary full" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Create</button>
+              </form>
+              <p class="create-footnote"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> A unique password is generated for every website.</p>
+            </section>
+            <div class="publishing-tip">
+              <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
+              <h3>From file to website</h3>
+              <p>Upload a single HTML file or a ZIP containing index.html. We'll take care of publishing.</p>
+              <span>
+                Previous releases are kept automatically.
+              </span>
+            </div>
+          </aside>
+        </div>
+        <footer class="app-footer">
+          <span>
+            Flex Partners · Report hosting
+          </span>
+          <span>
+            Private websites. Simple publishing.
+          </span>
+        </footer>
+      </main>
+    </div>
+  </div>
 {{end}}

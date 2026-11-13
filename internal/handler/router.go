@@ -69,8 +69,9 @@ func (h *router) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	staticTypes := map[string]string{
-		"/static/htmx.min.js": "text/javascript; charset=utf-8",
-		"/static/styles.css":  "text/css; charset=utf-8",
+		"/static/htmx.min.js":             "text/javascript; charset=utf-8",
+		"/static/styles.css":              "text/css; charset=utf-8",
+		"/static/flex-partners-white.svg": "image/svg+xml",
 	}
 	if contentType, ok := staticTypes[r.URL.Path]; ok && r.Method == "GET" {
 		data, err := web.Assets.ReadFile(strings.TrimPrefix(r.URL.Path, "/"))
@@ -145,6 +146,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 func (h *router) fail(w http.ResponseWriter, err error) {
+	status, code := errorResponse(err)
+	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func errorResponse(err error) (int, string) {
 	status, code := 500, "internal_error"
 	var large *http.MaxBytesError
 	switch {
@@ -159,7 +165,7 @@ func (h *router) fail(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrInvalidSlug), errors.Is(err, domain.ErrReservedSlug), errors.Is(err, domain.ErrInvalidUsername), errors.Is(err, domain.ErrNameRequired), errors.Is(err, zip.ErrFormat), errors.Is(err, domain.ErrSlugConfirmation), errors.Is(err, domain.ErrSiteNotDisabled), errors.Is(err, storage.ErrUnsafePath), errors.Is(err, storage.ErrSpecialFile), errors.Is(err, storage.ErrDuplicatePath), errors.Is(err, storage.ErrNoIndex), errors.Is(err, storage.ErrBadLayout), errors.Is(err, storage.ErrEmptyUpload):
 		status, code = 400, "invalid_input"
 	}
-	writeJSON(w, status, map[string]string{"error": code})
+	return status, code
 }
 func (h *router) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -184,9 +190,9 @@ func (h *router) login(w http.ResponseWriter, r *http.Request) {
 	id, err := h.Auth.Login(r.Context(), r.Form.Get("username"), r.Form.Get("password"), ip)
 	if err != nil {
 		if errors.Is(err, service.ErrLocked) {
-			http.Error(w, "temporarily locked", 429)
+			renderStatus(w, "login", struct{ Error string }{"Too many attempts. Please try again in 15 minutes."}, http.StatusTooManyRequests)
 		} else {
-			http.Error(w, "login failed", 401)
+			renderStatus(w, "login", struct{ Error string }{"The username or password is incorrect. Please try again."}, http.StatusUnauthorized)
 		}
 		return
 	}

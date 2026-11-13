@@ -21,7 +21,7 @@ ledger: no per-task commits were made. Current deliverables are tracked here.
 | Tasks | Status |
 | --- | --- |
 | 1–10 | Implemented: configuration, domain, database, credentials, uploads, atomic releases, routing, recovery, site service, authentication, middleware and API. |
-| 11 | Implemented: embedded server-rendered dashboard, site details, lifecycle forms and local HTMX. Automated HTTP/template checks are included; interactive browser walkthrough remains pending. |
+| 11 | Implemented: branded responsive dashboard, site details, lifecycle forms, search/status filters and local HTMX. Browser checks passed for login/logout, create, duplicate-address validation, one-time password display, HTML publishing, rename, disable/enable and layouts at 390/768/1440 px. Credentials and permanent deletion are covered by automated lifecycle tests. |
 | 12 | Implemented: Nginx/systemd and local integration tests. Actual Nginx integration passed in Docker, including SSHA, isolation, dynamic routing, permissions, mTLS and SNI/Host mismatch checks. |
 | 13 | Runbook and configuration examples prepared. Live VPS/Cloudflare checklist has NOT been executed. |
 | 14 | Local lifecycle, recovery, isolation, secret-logging and concurrency tests implemented. Live acceptance remains pending. |

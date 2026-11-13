@@ -1,14 +1,96 @@
 {{define "content"}}
-<h1>Report hosting</h1>
-<form method="post">
-  <label>
-    Username
-    <input name="username" required>
-  </label>
-  <label>
-    Password
-    <input type="password" name="password" required>
-  </label>
-  <button>Sign in</button>
-</form>
+  <div class="auth-page">
+    <section class="auth-story" aria-label="About report hosting">
+      <a class="brand" href="/login"><img src="/static/flex-partners-white.svg" alt="Flex Partners" width="164" height="42"><span>REPORT HOSTING</span></a>
+      <div class="auth-copy">
+        <span class="eyebrow">
+          A HOME FOR YOUR REPORTS
+        </span>
+        <h1>Your work.<br>Your audience.<br><em>One private space.</em></h1>
+        <p>Publish reports and static websites.<br>Share them with the people who matter.</p>
+        <div class="auth-benefits">
+          <span>
+            <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+            Simple publishing
+          </span>
+          <span>
+            <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+            Private by default
+          </span>
+        </div>
+      </div>
+      <div class="auth-preview">
+        <div class="preview-top">
+          <span>
+            <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>
+            Your workspace
+          </span>
+          <span class="preview-dot">
+          </span>
+        </div>
+        <div class="preview-report">
+          <span class="file-tile">
+            <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
+          </span>
+          <div>
+            <strong>Quarterly report</strong>
+            <span>
+              Ready to share
+            </span>
+          </div>
+          <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+        </div>
+        <div class="preview-line">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+        </div>
+        <small>One address. A dedicated password. Full control.</small>
+      </div>
+      <footer>
+        FLEX PARTNERS
+        <span>
+          Thoughtful tools. Clearer work.
+        </span>
+      </footer>
+    </section>
+    <main class="auth-panel">
+      <div class="auth-form">
+        <span class="eyebrow">
+          YOUR WORKSPACE
+        </span>
+        <h2>Welcome back</h2>
+        <p class="muted">Sign in to manage your websites and reports.</p>
+        {{with .}}
+          {{if .Error}}
+            <div class="notice danger" role="alert">
+              {{.Error}}
+            </div>
+          {{end}}
+        {{end}}
+        <form method="post">
+          <label class="field">
+            <span>
+              Username
+            </span>
+            <input name="username" required autocomplete="username" placeholder="Your administrator username">
+          </label>
+          <label class="field">
+            <span>
+              Password
+            </span>
+            <input type="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+          </label>
+          <button class="button primary full" type="submit">Sign in <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+        </form>
+        <p class="auth-security"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> A private workspace for authorized administrators.</p>
+      </div>
+      <span class="auth-panel-footer">
+        Report hosting · Flex Partners
+      </span>
+    </main>
+  </div>
 {{end}}
