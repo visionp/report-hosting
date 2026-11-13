@@ -158,3 +158,36 @@ func TestRecoveryRemovesReadyAndOrphanKeepsOtherSite(t *testing.T) {
 	_, err = s.Get(ctx, b.ID)
 	check(t, err)
 }
+
+func TestDeployLockIsPerSite(t *testing.T) {
+	s := testSites(t)
+	ctx := context.Background()
+	a, _, err := s.Create(ctx, "admin", "A", "site-a")
+	check(t, err)
+	b, _, err := s.Create(ctx, "admin", "B", "site-b")
+	check(t, err)
+	unlock := s.Deployer.LockSite(a.ID) // simulates an in-flight deploy of A
+	done := make(chan error, 1)
+	go func() { done <- s.Rename(ctx, "admin", b.ID, "B2", "site-b2") }()
+	select {
+	case err := <-done:
+		check(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("operation on another site blocked by a deploy of site A")
+	}
+	check(t, s.Disable(ctx, "admin", a.ID))
+	del := make(chan error, 1)
+	go func() { del <- s.Delete(ctx, "admin", a.ID, "site-a") }()
+	select {
+	case <-del:
+		t.Fatal("Delete ran while a deploy held the site lock")
+	case <-time.After(200 * time.Millisecond):
+	}
+	unlock()
+	select {
+	case err := <-del:
+		check(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Delete did not proceed after the deploy finished")
+	}
+}

@@ -57,6 +57,15 @@ func (d *Deployer) siteLock(id string) *sync.Mutex {
 	return d.locks[id]
 }
 
+// LockSite blocks deploys to the site (and anything else holding its lock) until
+// the returned function is called. Callers that remove or rewrite a site's
+// directory use it so they cannot race an in-flight deploy of the same site.
+func (d *Deployer) LockSite(id string) (unlock func()) {
+	l := d.siteLock(id)
+	l.Lock()
+	return l.Unlock
+}
+
 func (d *Deployer) DeployZip(ctx context.Context, siteID, zipPath string) (domain.Release, error) {
 	return d.deploy(ctx, siteID, func(dir string) (string, error) { return ExtractZip(zipPath, dir, d.Limits) })
 }

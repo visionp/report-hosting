@@ -191,6 +191,10 @@ func (s *Sites) Enable(ctx context.Context, actor, id string) error {
 	return s.record(context.WithoutCancel(ctx), actor, "enable", id)
 }
 func (s *Sites) Delete(ctx context.Context, actor, id, confirmSlug string) error {
+	// Lock order: per-site deploy lock, then s.mu. Deploys take only the site
+	// lock, so a deploy in flight finishes before the directory is removed.
+	unlockSite := s.Deployer.LockSite(id)
+	defer unlockSite()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, err := s.Store.GetSite(ctx, id)
@@ -242,8 +246,7 @@ func (s *Sites) RegenerateCredentials(ctx context.Context, actor, id, username s
 	return pw, s.record(context.WithoutCancel(ctx), actor, "credentials", id)
 }
 func (s *Sites) DeployZip(ctx context.Context, actor, id, path string) (domain.Release, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// No s.mu here: Deployer serializes per site, so a large upload does not block other sites.
 	if _, err := s.Store.GetSite(ctx, id); err != nil {
 		return domain.Release{}, err
 	}
@@ -256,8 +259,7 @@ func (s *Sites) DeployZip(ctx context.Context, actor, id, path string) (domain.R
 	return v, err
 }
 func (s *Sites) DeployHTML(ctx context.Context, actor, id string, r io.Reader) (domain.Release, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// No s.mu here: Deployer serializes per site, so a large upload does not block other sites.
 	if _, err := s.Store.GetSite(ctx, id); err != nil {
 		return domain.Release{}, err
 	}
