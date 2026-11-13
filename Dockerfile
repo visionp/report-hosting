@@ -6,7 +6,8 @@ RUN go mod download
 COPY . .
 
 FROM source AS test
-RUN apt-get update && apt-get install -y --no-install-recommends nginx curl openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends nginx curl openssl ca-certificates python3 shellcheck && rm -rf /var/lib/apt/lists/*
+RUN shellcheck deploy/scripts/deploy-release.sh && python3 -m unittest discover -s deploy/tests -v
 RUN go vet ./... && go test -race -count=1 ./...
 RUN bash deploy/scripts/nginx-itest.sh
 

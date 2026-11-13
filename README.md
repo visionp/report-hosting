@@ -44,6 +44,11 @@ On PowerShell, replace `$(pwd)` with the absolute project folder path.
 
 ## Configuration and operation
 
+GitHub Actions runs the Linux checks on pull requests and deploys successful
+`main` builds over SSH. Follow [GitHub Actions setup](deploy/GITHUB_ACTIONS.md)
+for repository secrets and one-time preparation on the shared VPS. Production
+keeps the systemd runtime; only the tested executable is updated automatically.
+
 Copy `deploy/config.example.json` to `/etc/report_hosting/config.json`. Replace
 the Cloudflare Access team hostname and application audience before production.
 Configuration precedence is defaults, JSON file, then `REPORT_HOSTING_*`

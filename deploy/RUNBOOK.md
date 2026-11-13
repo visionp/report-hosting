@@ -146,6 +146,12 @@ Do not trust forwarded visitor addresses from arbitrary source networks.
 
 ## Routine operations and recovery
 
+For upgrades through GitHub Actions, complete the one-time setup in
+[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The updater checks the verified artifact,
+atomically replaces the executable, restarts the service and checks its HTTP
+response. It creates no backups and performs no automatic rollback. It does not
+install or reload Nginx.
+
 Use `systemctl status report_hosting`, `journalctl -u report_hosting` and `df -h`
 to inspect failures. The service runs recovery before accepting HTTP traffic:
 `current` selects the published version; database metadata is aligned with it,
@@ -156,11 +162,8 @@ stopped and inspect the site directory and database together. Do not manually
 move symlinks between sites or delete active releases. Repair requires evidence
 of the intended site/release ownership.
 
-For a binary upgrade, save the previous binary, install the new binary, restart
-the service and repeat smoke tests. Binary rollback is safe only after checking
-schema compatibility; do not overwrite the live SQLite database with an older
-copy while the service is running. Release restore is not implemented.
+For a binary upgrade, install the new binary, restart the service and repeat
+smoke tests. If deployment fails, inspect the service log and deploy a corrected
+build. Release restore is not implemented.
 
-Backups and alerting are deferred. Before hosting important content, provide a
-consistent SQLite backup, site and credential files copied off-server, and a
-tested restore procedure. Until then, retain source uploads elsewhere.
+Backups and alerting are deferred and are not part of the deployment workflow.
