@@ -265,6 +265,16 @@ func (s *Store) ClearFailures(ctx context.Context, key string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM login_attempts WHERE key=?", key)
 	return err
 }
+
+// PurgeStale removes login_attempts rows whose window and lock have both
+// ended, and sessions past their absolute expiry or idle timeout.
+func (s *Store) PurgeStale(ctx context.Context, now time.Time, window, idle time.Duration) error {
+	if _, err := s.db.ExecContext(ctx, "DELETE FROM login_attempts WHERE locked_until<=? AND window_start<=?", now.UnixNano(), now.Add(-window).UnixNano()); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, "DELETE FROM admin_sessions WHERE expires_at<=? OR last_seen_at<=?", now.UnixNano(), now.Add(-idle).UnixNano())
+	return err
+}
 func (s *Store) AddAudit(ctx context.Context, actor, action, siteID string) error {
 	_, err := s.db.ExecContext(ctx, "INSERT INTO audit_events(actor,action,site_id,created_at) VALUES(?,?,?,?)", actor, action, siteID, time.Now().UnixNano())
 	return err

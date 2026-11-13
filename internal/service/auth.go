@@ -81,12 +81,20 @@ func VerifyPassword(hash, pw string) bool {
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
+const (
+	failureWindow = 15 * time.Minute
+	sessionIdle   = 30 * time.Minute
+	purgeEvery    = 10 * time.Minute
+)
+
 type Session = repository.Session
 type Auth struct {
 	Store  *repository.Store
 	Now    func() time.Time
 	Params config.Argon2Params
 	mu     sync.Mutex
+	// lastPurge is guarded by mu.
+	lastPurge time.Time
 	// verifying serializes password checks per account (guarded by mu) so a
 	// burst of concurrent guesses cannot all pass the lockout check before
 	// any failure is recorded.
@@ -137,6 +145,15 @@ func (a *Auth) Login(ctx context.Context, username, password, ip string) (string
 	now := a.now()
 	keys := []string{"ip:" + ip, "account:" + username}
 	a.mu.Lock()
+	// Failure rows are keyed by attacker-chosen usernames and sessions are only
+	// deleted when presented again, so sweep stale rows periodically.
+	if now.Sub(a.lastPurge) >= purgeEvery {
+		if err := a.Store.PurgeStale(ctx, now, failureWindow, sessionIdle); err != nil {
+			a.mu.Unlock()
+			return "", err
+		}
+		a.lastPurge = now
+	}
 	for _, key := range keys {
 		until, err := a.Store.LockedUntil(ctx, key)
 		if err != nil {
@@ -178,12 +195,12 @@ func (a *Auth) Login(ctx context.Context, username, password, ip string) (string
 	}
 	if !valid {
 		for _, key := range keys {
-			count, err := a.Store.RecordFailure(ctx, key, now, 15*time.Minute)
+			count, err := a.Store.RecordFailure(ctx, key, now, failureWindow)
 			if err != nil {
 				return "", err
 			}
 			if count >= 5 {
-				if err := a.Store.Lock(ctx, key, now.Add(15*time.Minute)); err != nil {
+				if err := a.Store.Lock(ctx, key, now.Add(failureWindow)); err != nil {
 					return "", err
 				}
 			}
@@ -220,7 +237,7 @@ func (a *Auth) Validate(ctx context.Context, id string) (Session, error) {
 		return Session{}, err
 	}
 	now := a.now()
-	if !now.Before(s.ExpiresAt) || !now.Before(s.LastSeenAt.Add(30*time.Minute)) {
+	if !now.Before(s.ExpiresAt) || !now.Before(s.LastSeenAt.Add(sessionIdle)) {
 		if err := a.Store.DeleteSession(ctx, s.IDHash); err != nil {
 			return Session{}, err
 		}

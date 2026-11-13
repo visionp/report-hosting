@@ -215,3 +215,28 @@ func TestReopenAndCancellation(t *testing.T) {
 		t.Fatalf("cancellation: %v", err)
 	}
 }
+
+func TestPurgeStale(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	old := now.Add(-time.Hour)
+	_, err := s.RecordFailure(ctx, "stale", old, 15*time.Minute)
+	must(t, err)
+	_, err = s.RecordFailure(ctx, "recent", now, 15*time.Minute)
+	must(t, err)
+	must(t, s.Lock(ctx, "locked", now.Add(time.Minute)))
+	must(t, s.PutSession(ctx, "expired", old, old, old.Add(time.Minute)))
+	must(t, s.PutSession(ctx, "idle", old, old, now.Add(time.Hour)))
+	must(t, s.PutSession(ctx, "live", now, now, now.Add(time.Hour)))
+	must(t, s.PurgeStale(ctx, now, 15*time.Minute, 30*time.Minute))
+	var n int
+	must(t, s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM login_attempts").Scan(&n))
+	if n != 2 {
+		t.Fatalf("login_attempts rows = %d, want 2", n)
+	}
+	must(t, s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM admin_sessions").Scan(&n))
+	if n != 1 {
+		t.Fatalf("sessions = %d, want 1", n)
+	}
+}
