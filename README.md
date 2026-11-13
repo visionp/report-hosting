@@ -57,7 +57,7 @@ environment overrides. Unknown JSON properties and invalid settings are rejected
 | Setting | Default / purpose |
 | --- | --- |
 | `data_dir` | `/var/lib/report_hosting` |
-| `listen_addr` | `127.0.0.1:8080`; loopback addresses only |
+| `listen_addr` | `127.0.0.1:5193`; loopback addresses only |
 | `base_domain` | `partnersflex.space` |
 | `production`, `access_check` | Both true; production cannot disable Access |
 | `access_team_domain`, `access_aud` | Required when Access verification is enabled |

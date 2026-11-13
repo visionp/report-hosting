@@ -37,7 +37,7 @@ type Config struct {
 }
 
 func Defaults() Config {
-	return Config{DataDir: "/var/lib/report_hosting", ListenAddr: "127.0.0.1:8080", BaseDomain: "partnersflex.space",
+	return Config{DataDir: "/var/lib/report_hosting", ListenAddr: "127.0.0.1:5193", BaseDomain: "partnersflex.space",
 		Limits: Limits{50 << 20, 250 << 20, 5000, 100}, ReservedSlugs: []string{"admin", "www", "api", "mail", "ftp", "status", "cdn", "static", "ns1", "ns2"},
 		Production: true, AccessCheck: true, Argon2: Argon2Params{64 * 1024, 3, 2}}
 }

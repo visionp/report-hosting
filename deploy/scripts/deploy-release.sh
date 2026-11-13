@@ -16,7 +16,7 @@ binary=/usr/local/bin/report_hosting
 config=/etc/report_hosting/config.json
 envfile=/etc/report_hosting/report_hosting.env
 service=report_hosting.service
-health_url=http://127.0.0.1:8080/login
+health_url=http://127.0.0.1:5193/login
 
 for tool in flock sha256sum systemctl systemd-run curl install cmp python3; do
   command -v "$tool" >/dev/null || fail "Missing command: $tool"
@@ -90,7 +90,7 @@ import sys
 
 with open(sys.argv[1], encoding="utf-8") as config_file:
     config = json.load(config_file)
-expected = {"data_dir": "/var/lib/report_hosting", "listen_addr": "127.0.0.1:8080",
+expected = {"data_dir": "/var/lib/report_hosting", "listen_addr": "127.0.0.1:5193",
             "production": True, "access_check": True, "base_domain": "partnersflex.space"}
 for key, wanted in expected.items():
     value = os.environ.get("REPORT_HOSTING_" + key.upper(), config.get(key, wanted))

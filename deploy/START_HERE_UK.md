@@ -75,7 +75,7 @@ sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
 - Створити `/var/lib/report_hosting-deploy`, власник `root`, права `0700`.
 - Дозволити SSH-користувачу виконувати встановлений скрипт через `sudo` без
   пароля. Приклад правила наведений нижче; `deploy` замінити на `SERVER_USER`.
-- Перевірити через `sudo ss -ltnp`, що порт `127.0.0.1:8080` не зайнятий іншим
+- Перевірити через `sudo ss -ltnp`, що порт `127.0.0.1:5193` не зайнятий іншим
   сервісом. Встановити потрібні команди: `curl`, `python3`, `flock` із `util-linux`.
 
 Правило для `/etc/sudoers.d/report-hosting-deploy` створити через `visudo`:
@@ -128,7 +128,7 @@ Workflow має успішно виконати перевірки, збірку
 sudo systemctl is-active report_hosting
 sudo cat /var/lib/report_hosting-deploy/current-release
 sudo journalctl -u report_hosting -n 50 --no-pager
-curl --noproxy '*' -i -H 'Host: admin.partnersflex.space' http://127.0.0.1:8080/login
+curl --noproxy '*' -i -H 'Host: admin.partnersflex.space' http://127.0.0.1:5193/login
 ```
 
 Очікується статус сервісу `active`. Локальний HTTP-запит без Cloudflare Access

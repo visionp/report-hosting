@@ -15,7 +15,9 @@ live inventory of listening sockets:
 | flex_crm | `/opt/flex_crm` | 8000 | Docker Compose |
 | flex_report | `/opt/flex-report` | 5190 | Docker Compose |
 | flex_accounts | `/opt/flex-accounts` | 5191 | Docker Compose |
-| report-hosting | `/opt/report-hosting/releases` | 8080 | Go binary + systemd |
+| mcp-storage-knowledge | — | 5192 | Docker Compose |
+| news-bot | `/opt/news-bot` | 8080 (all interfaces) | systemd `news-bot-webhook` |
+| report-hosting | `/opt/report-hosting/releases` | 5193 | Go binary + systemd |
 
 This project uses the same SSH secret names and the reusable checks/deploy
 pattern. Its existing systemd architecture is retained. Go and Docker are needed
@@ -98,7 +100,7 @@ permission is needed. A private repository checkout and GitHub deploy key are
 not needed on the VPS: Actions uploads the verified binary directly.
 
 The helper expects the standard unit and production profile: data under
-`/var/lib/report_hosting`, `127.0.0.1:8080`, `partnersflex.space`, and both
+`/var/lib/report_hosting`, `127.0.0.1:5193`, `partnersflex.space`, and both
 `production` and `access_check` true. It checks JSON and EnvironmentFile
 overrides using the service identity. Access team/AUD may be supplied through
 the environment file. Keep the installed unit consistent with
@@ -139,7 +141,7 @@ After the first automated run, verify the Actions log and on the VPS:
 sudo cat /var/lib/report_hosting-deploy/current-release
 sudo systemctl is-active report_hosting
 sudo journalctl -u report_hosting -n 50 --no-pager
-curl --noproxy '*' -i -H 'Host: admin.partnersflex.space' http://127.0.0.1:8080/login
+curl --noproxy '*' -i -H 'Host: admin.partnersflex.space' http://127.0.0.1:5193/login
 ```
 
 The local request must return `403` with `access denied` because it has no Access

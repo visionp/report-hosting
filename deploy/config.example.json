@@ -1,6 +1,6 @@
 {
   "data_dir": "/var/lib/report_hosting",
-  "listen_addr": "127.0.0.1:8080",
+  "listen_addr": "127.0.0.1:5193",
   "base_domain": "partnersflex.space",
   "production": true,
   "access_check": true,
