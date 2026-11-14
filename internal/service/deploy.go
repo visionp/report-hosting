@@ -14,7 +14,10 @@ func (s *Sites) deployResult(ctx context.Context, id string, err error) {
 		return
 	}
 	action := "deploy"
-	if errors.Is(err, storage.ErrUnsafePath) || errors.Is(err, storage.ErrSpecialFile) || errors.Is(err, storage.ErrDuplicatePath) || errors.Is(err, storage.ErrLimitExceeded) || errors.Is(err, storage.ErrNoIndex) || errors.Is(err, storage.ErrBadLayout) || errors.Is(err, storage.ErrEmptyUpload) {
+	if errors.Is(err, storage.ErrUnsafePath) || errors.Is(err, storage.ErrSpecialFile) ||
+		errors.Is(err, storage.ErrDuplicatePath) || errors.Is(err, storage.ErrLimitExceeded) ||
+		errors.Is(err, storage.ErrNoIndex) || errors.Is(err, storage.ErrBadLayout) ||
+		errors.Is(err, storage.ErrEmptyUpload) {
 		action = "validation"
 	}
 	s.logger().WarnContext(ctx, "site deployment rejected", "action", action, "site_id", id)

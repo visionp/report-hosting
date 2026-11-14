@@ -8,7 +8,8 @@ import (
 func TestLoginLoadsSharedStylesWithoutSession(t *testing.T) {
 	h, _ := testRouter(t)
 	page := request(h, "GET", "/login", "", "", "", "")
-	if page.Code != 200 || !strings.Contains(page.Body.String(), `href="/static/styles.css"`) || strings.Contains(page.Body.String(), "<style>") {
+	if page.Code != 200 || !strings.Contains(page.Body.String(), `href="/static/styles.css"`) ||
+		strings.Contains(page.Body.String(), "<style>") {
 		t.Fatalf("login must use the shared stylesheet: %d %s", page.Code, page.Body.String())
 	}
 	css := request(h, "GET", "/static/styles.css", "", "", "", "")

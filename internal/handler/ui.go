@@ -143,7 +143,13 @@ func (h *router) createSite(w http.ResponseWriter, r *http.Request, workspace wo
 }
 
 // A password is rendered only in the response to the action that generated it.
-func showCredentials(w http.ResponseWriter, workspace workspaceView, site domain.Site, title, password string, err error) {
+func showCredentials(
+	w http.ResponseWriter,
+	workspace workspaceView,
+	site domain.Site,
+	title, password string,
+	err error,
+) {
 	view := credentialsView{workspaceView: workspace, Site: site, Title: title, Password: password}
 	status := http.StatusOK
 	if err != nil {

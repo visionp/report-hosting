@@ -50,7 +50,17 @@ func serve(args []string) error {
 	auth := &service.Auth{Store: st, Params: c.Argon2}
 	// Driving adapter: HTTP is the only entry point of this process.
 	access := handler.NewAccessVerifier(c.AccessTeamDomain, c.AccessAUD, &handler.RemoteKeys{Team: c.AccessTeamDomain})
-	server := &http.Server{Addr: c.ListenAddr, Handler: handler.NewRouter(handler.Deps{Config: c, Sites: sites, Auth: auth, Access: access}), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 2 * time.Minute, WriteTimeout: 3 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
+	server := &http.Server{
+		Addr: c.ListenAddr,
+		Handler: handler.NewRouter(handler.Deps{
+			Config: c, Sites: sites, Auth: auth, Access: access,
+		}),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		WriteTimeout:      3 * time.Minute,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    32 << 10,
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)

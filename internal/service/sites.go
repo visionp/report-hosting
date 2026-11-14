@@ -29,7 +29,13 @@ type Sites struct {
 	mu       sync.Mutex
 }
 
-func NewSites(st *repository.Store, layout storage.Layout, links routing.Links, deployer *storage.Deployer, reserved []string) *Sites {
+func NewSites(
+	st *repository.Store,
+	layout storage.Layout,
+	links routing.Links,
+	deployer *storage.Deployer,
+	reserved []string,
+) *Sites {
 	return &Sites{Store: st, Layout: layout, Links: links, Deployer: deployer, Reserved: reserved}
 }
 func (s *Sites) logger() *slog.Logger {
@@ -103,7 +109,10 @@ func (s *Sites) Create(ctx context.Context, actor, name, slug string) (domain.Si
 		return empty, "", err
 	}
 	now := time.Now().UTC()
-	v := domain.Site{ID: id, Name: name, Slug: slug, AuthUsername: slug, Status: domain.SiteActive, CreatedAt: now, UpdatedAt: now}
+	v := domain.Site{
+		ID: id, Name: name, Slug: slug, AuthUsername: slug, Status: domain.SiteActive,
+		CreatedAt: now, UpdatedAt: now,
+	}
 	if err = s.Store.CreateSite(ctx, v); err != nil {
 		os.RemoveAll(dir)
 		return empty, "", err

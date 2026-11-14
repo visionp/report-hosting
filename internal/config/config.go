@@ -37,9 +37,14 @@ type Config struct {
 }
 
 func Defaults() Config {
-	return Config{DataDir: "/var/lib/report_hosting", ListenAddr: "127.0.0.1:5193", BaseDomain: "partnersflex.space",
-		Limits: Limits{50 << 20, 250 << 20, 5000, 100}, ReservedSlugs: []string{"admin", "www", "api", "mail", "ftp", "status", "cdn", "static", "ns1", "ns2"},
-		Production: true, AccessCheck: true, Argon2: Argon2Params{64 * 1024, 3, 2}}
+	return Config{
+		DataDir: "/var/lib/report_hosting", ListenAddr: "127.0.0.1:5193", BaseDomain: "partnersflex.space",
+		Limits: Limits{50 << 20, 250 << 20, 5000, 100},
+		ReservedSlugs: []string{
+			"admin", "www", "api", "mail", "ftp", "status", "cdn", "static", "ns1", "ns2",
+		},
+		Production: true, AccessCheck: true, Argon2: Argon2Params{64 * 1024, 3, 2},
+	}
 }
 
 // Load applies defaults, then a strict JSON file, then environment overrides.
@@ -62,7 +67,10 @@ func Load(path string) (Config, error) {
 			return Config{}, errors.New("config must contain one JSON object")
 		}
 	}
-	for key, dest := range map[string]*string{"DATA_DIR": &c.DataDir, "LISTEN_ADDR": &c.ListenAddr, "BASE_DOMAIN": &c.BaseDomain, "ACCESS_TEAM_DOMAIN": &c.AccessTeamDomain, "ACCESS_AUD": &c.AccessAUD} {
+	for key, dest := range map[string]*string{
+		"DATA_DIR": &c.DataDir, "LISTEN_ADDR": &c.ListenAddr, "BASE_DOMAIN": &c.BaseDomain,
+		"ACCESS_TEAM_DOMAIN": &c.AccessTeamDomain, "ACCESS_AUD": &c.AccessAUD,
+	} {
 		if v, ok := os.LookupEnv("REPORT_HOSTING_" + key); ok {
 			*dest = v
 		}
@@ -104,7 +112,8 @@ func (c Config) Validate() error {
 		return errors.New("production requires Access verification")
 	}
 	if c.AccessCheck {
-		if c.AccessAUD == "" || !strings.HasSuffix(c.AccessTeamDomain, ".cloudflareaccess.com") || strings.ContainsAny(c.AccessTeamDomain, "/: ?#\\") {
+		if c.AccessAUD == "" || !strings.HasSuffix(c.AccessTeamDomain, ".cloudflareaccess.com") ||
+			strings.ContainsAny(c.AccessTeamDomain, "/: ?#\\") {
 			return errors.New("Access verification requires access_aud and a cloudflareaccess.com team hostname")
 		}
 	}

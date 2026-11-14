@@ -26,7 +26,9 @@ func testSites(t *testing.T) *Sites {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	d := storage.NewDeployer(layout, st, storage.Limits{MaxZipBytes: 1024 * 1024, MaxExtractedBytes: 1024 * 1024, MaxFiles: 100, MaxRatio: 100}, 0)
+	d := storage.NewDeployer(layout, st, storage.Limits{
+		MaxZipBytes: 1024 * 1024, MaxExtractedBytes: 1024 * 1024, MaxFiles: 100, MaxRatio: 100,
+	}, 0)
 	return NewSites(st, layout, routing.Links{Dir: layout.BySlugDir()}, d, []string{"admin"})
 }
 func check(t *testing.T, err error) {
@@ -106,7 +108,10 @@ func TestRecoverySwitchedReleaseAndCommittedDisable(t *testing.T) {
 	dest := s.Layout.ReleaseDir(v.ID, 2)
 	check(t, os.MkdirAll(dest, 0750))
 	check(t, os.WriteFile(filepath.Join(dest, "index.html"), []byte("two"), 0640))
-	check(t, s.Store.AddRelease(ctx, domain.Release{ID: "v2", SiteID: v.ID, Version: 2, StoragePath: dest, Checksum: "x", Status: domain.ReleaseReady, CreatedAt: time.Now()}))
+	check(t, s.Store.AddRelease(ctx, domain.Release{
+		ID: "v2", SiteID: v.ID, Version: 2, StoragePath: dest, Checksum: "x",
+		Status: domain.ReleaseReady, CreatedAt: time.Now(),
+	}))
 	temp := filepath.Join(s.Layout.SiteDir(v.ID), "switch")
 	check(t, os.Symlink(filepath.Join("releases", "000002"), temp))
 	check(t, os.Rename(temp, filepath.Join(s.Layout.SiteDir(v.ID), "current")))
@@ -138,7 +143,10 @@ func TestRecoveryRemovesReadyAndOrphanKeepsOtherSite(t *testing.T) {
 	check(t, err)
 	dest := s.Layout.ReleaseDir(a.ID, 1)
 	check(t, os.MkdirAll(dest, 0750))
-	check(t, s.Store.AddRelease(ctx, domain.Release{ID: "ready", SiteID: a.ID, Version: 1, StoragePath: dest, Status: domain.ReleaseReady, CreatedAt: time.Now()}))
+	check(t, s.Store.AddRelease(ctx, domain.Release{
+		ID: "ready", SiteID: a.ID, Version: 1, StoragePath: dest,
+		Status: domain.ReleaseReady, CreatedAt: time.Now(),
+	}))
 	orphan := s.Layout.ReleaseDir(a.ID, 2)
 	check(t, os.MkdirAll(orphan, 0750))
 	check(t, s.Links.Create("stale", a.ID))

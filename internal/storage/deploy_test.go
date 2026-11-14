@@ -31,7 +31,10 @@ func deployment(t *testing.T) (*Deployer, *repository.Store) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	if err := st.CreateSite(context.Background(), domain.Site{ID: "site-id", Name: "Site", Slug: "site", AuthUsername: "site", Status: domain.SiteActive, CreatedAt: time.Now(), UpdatedAt: time.Now()}); err != nil {
+	if err := st.CreateSite(context.Background(), domain.Site{
+		ID: "site-id", Name: "Site", Slug: "site", AuthUsername: "site", Status: domain.SiteActive,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}); err != nil {
 		t.Fatal(err)
 	}
 	d := NewDeployer(layout, st, limits(), 1<<20)
@@ -71,7 +74,8 @@ func TestDeployLifecycleRetentionAndFailure(t *testing.T) {
 	if len(releases) != 3 {
 		t.Fatal(releases)
 	}
-	if releases[0].Version != 5 || releases[0].Status != domain.ReleaseActive || releases[1].Status != domain.ReleaseSuperseded {
+	if releases[0].Version != 5 || releases[0].Status != domain.ReleaseActive ||
+		releases[1].Status != domain.ReleaseSuperseded {
 		t.Fatal(releases)
 	}
 	if _, err := os.Stat(d.Layout.ReleaseDir("site-id", 1)); !os.IsNotExist(err) {
@@ -120,7 +124,8 @@ func TestDeploySerializesConcurrentUploads(t *testing.T) {
 func TestDeployDiskSpaceRejectedBeforeReading(t *testing.T) {
 	d, _ := deployment(t)
 	d.freeSpace = func(string) (uint64, error) { return 1, nil }
-	if _, err := d.DeployHTML(context.Background(), "site-id", strings.NewReader("hello")); !errors.Is(err, ErrInsufficientDisk) {
+	_, err := d.DeployHTML(context.Background(), "site-id", strings.NewReader("hello"))
+	if !errors.Is(err, ErrInsufficientDisk) {
 		t.Fatal(err)
 	}
 	entries, _ := os.ReadDir(d.Layout.StagingDir())

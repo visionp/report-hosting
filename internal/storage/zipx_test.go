@@ -84,7 +84,12 @@ func TestZipLayoutsAndJunk(t *testing.T) {
 	for _, prefix := range []string{"", "site/"} {
 		t.Run(prefix, func(t *testing.T) {
 			dir := t.TempDir()
-			root, err := ExtractZip(archive(t, entry{prefix + "index.html", "hello", 0}, entry{prefix + "assets/a.css", "css", 0}, entry{"__MACOSX/x", "junk", 0}, entry{prefix + ".DS_Store", "junk", 0}), dir, limits())
+			root, err := ExtractZip(archive(t,
+				entry{prefix + "index.html", "hello", 0},
+				entry{prefix + "assets/a.css", "css", 0},
+				entry{"__MACOSX/x", "junk", 0},
+				entry{prefix + ".DS_Store", "junk", 0},
+			), dir, limits())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +116,12 @@ func TestZipLayoutsAndJunk(t *testing.T) {
 
 func TestZipLimits(t *testing.T) {
 	name := archive(t, entry{"index.html", strings.Repeat("x", 20000), 0}, entry{"other", "abc", 0})
-	for _, mutate := range []func(*Limits){func(l *Limits) { l.MaxZipBytes = 1 }, func(l *Limits) { l.MaxExtractedBytes = 10 }, func(l *Limits) { l.MaxFiles = 1 }, func(l *Limits) { l.MaxRatio = 1 }} {
+	for _, mutate := range []func(*Limits){
+		func(l *Limits) { l.MaxZipBytes = 1 },
+		func(l *Limits) { l.MaxExtractedBytes = 10 },
+		func(l *Limits) { l.MaxFiles = 1 },
+		func(l *Limits) { l.MaxRatio = 1 },
+	} {
 		l := limits()
 		mutate(&l)
 		if _, err := ExtractZip(name, t.TempDir(), l); !errors.Is(err, ErrLimitExceeded) {

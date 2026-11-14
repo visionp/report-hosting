@@ -20,7 +20,8 @@ func TestDeleteAuditFailurePreservesSiteAndFiles(t *testing.T) {
 	db, err := sql.Open("sqlite", filepath.Join(s.Layout.Root, "db", "test.sqlite"))
 	check(t, err)
 	defer db.Close()
-	_, err = db.Exec(`CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events WHEN NEW.action='delete' BEGIN SELECT RAISE(FAIL,'audit unavailable'); END`)
+	_, err = db.Exec("CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events " +
+		"WHEN NEW.action='delete' BEGIN SELECT RAISE(FAIL,'audit unavailable'); END")
 	check(t, err)
 	if err = s.Delete(ctx, "admin", v.ID, "demo"); err == nil {
 		t.Fatal("expected audit failure")

@@ -36,7 +36,19 @@ func errorResponse(err error) (int, string) {
 		status, code = 507, "insufficient_storage"
 	case errors.Is(err, domain.ErrDuplicateSlug):
 		status, code = 409, "duplicate_slug"
-	case errors.Is(err, domain.ErrInvalidSlug), errors.Is(err, domain.ErrReservedSlug), errors.Is(err, domain.ErrInvalidUsername), errors.Is(err, domain.ErrNameRequired), errors.Is(err, zip.ErrFormat), errors.Is(err, domain.ErrSlugConfirmation), errors.Is(err, domain.ErrSiteNotDisabled), errors.Is(err, storage.ErrUnsafePath), errors.Is(err, storage.ErrSpecialFile), errors.Is(err, storage.ErrDuplicatePath), errors.Is(err, storage.ErrNoIndex), errors.Is(err, storage.ErrBadLayout), errors.Is(err, storage.ErrEmptyUpload):
+	case errors.Is(err, domain.ErrInvalidSlug),
+		errors.Is(err, domain.ErrReservedSlug),
+		errors.Is(err, domain.ErrInvalidUsername),
+		errors.Is(err, domain.ErrNameRequired),
+		errors.Is(err, zip.ErrFormat),
+		errors.Is(err, domain.ErrSlugConfirmation),
+		errors.Is(err, domain.ErrSiteNotDisabled),
+		errors.Is(err, storage.ErrUnsafePath),
+		errors.Is(err, storage.ErrSpecialFile),
+		errors.Is(err, storage.ErrDuplicatePath),
+		errors.Is(err, storage.ErrNoIndex),
+		errors.Is(err, storage.ErrBadLayout),
+		errors.Is(err, storage.ErrEmptyUpload):
 		status, code = 400, "invalid_input"
 	}
 	return status, code

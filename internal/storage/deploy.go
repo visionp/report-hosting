@@ -84,7 +84,11 @@ func randomID() (string, error) {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
-func (d *Deployer) deploy(ctx context.Context, siteID string, stage func(string) (string, error)) (domain.Release, error) {
+func (d *Deployer) deploy(
+	ctx context.Context,
+	siteID string,
+	stage func(string) (string, error),
+) (domain.Release, error) {
 	lock := d.siteLock(siteID)
 	lock.Lock()
 	defer lock.Unlock()
@@ -106,7 +110,8 @@ func (d *Deployer) deploy(ctx context.Context, siteID string, stage func(string)
 	if err != nil {
 		return empty, err
 	}
-	if d.MinFreeBytes < 0 || d.Limits.MaxExtractedBytes <= 0 || free < uint64(d.MinFreeBytes) || free-uint64(d.MinFreeBytes) < uint64(d.Limits.MaxExtractedBytes) {
+	if d.MinFreeBytes < 0 || d.Limits.MaxExtractedBytes <= 0 || free < uint64(d.MinFreeBytes) ||
+		free-uint64(d.MinFreeBytes) < uint64(d.Limits.MaxExtractedBytes) {
 		return empty, ErrInsufficientDisk
 	}
 	dir, err := os.MkdirTemp(d.Layout.StagingDir(), "upload-*")
@@ -150,7 +155,10 @@ func (d *Deployer) deploy(ctx context.Context, siteID string, stage func(string)
 		os.RemoveAll(dest)
 		return empty, err
 	}
-	release := domain.Release{ID: id, SiteID: siteID, Version: version, StoragePath: dest, Checksum: checksum, Status: domain.ReleaseReady, CreatedAt: time.Now().UTC()}
+	release := domain.Release{
+		ID: id, SiteID: siteID, Version: version, StoragePath: dest,
+		Checksum: checksum, Status: domain.ReleaseReady, CreatedAt: time.Now().UTC(),
+	}
 	if err := d.Store.AddRelease(ctx, release); err != nil {
 		os.RemoveAll(dest)
 		return empty, err

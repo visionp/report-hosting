@@ -27,7 +27,10 @@ type Deps struct {
 type router struct{ Deps }
 
 func SessionCookie(id string) *http.Cookie {
-	return &http.Cookie{Name: cookieName, Value: id, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, Path: "/"}
+	return &http.Cookie{
+		Name: cookieName, Value: id, Secure: true, HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, Path: "/",
+	}
 }
 func csrf(id string) string {
 	s := sha256.Sum256([]byte("report-hosting-csrf:" + id))
@@ -159,9 +162,13 @@ func (h *router) login(w http.ResponseWriter, r *http.Request) {
 	id, err := h.Auth.Login(r.Context(), r.Form.Get("username"), r.Form.Get("password"), ip)
 	if err != nil {
 		if errors.Is(err, service.ErrLocked) {
-			renderStatus(w, "login", struct{ Error string }{"Too many attempts. Please try again in 15 minutes."}, http.StatusTooManyRequests)
+			renderStatus(w, "login",
+				struct{ Error string }{"Too many attempts. Please try again in 15 minutes."},
+				http.StatusTooManyRequests)
 		} else {
-			renderStatus(w, "login", struct{ Error string }{"The username or password is incorrect. Please try again."}, http.StatusUnauthorized)
+			renderStatus(w, "login",
+				struct{ Error string }{"The username or password is incorrect. Please try again."},
+				http.StatusUnauthorized)
 		}
 		return
 	}

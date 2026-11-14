@@ -12,7 +12,8 @@ func TestValidateSlug(t *testing.T) {
 		want error
 	}{
 		{"demo", nil}, {"a", nil}, {strings.Repeat("a", 32), nil}, {strings.Repeat("a", 33), ErrInvalidSlug},
-		{"-a", ErrInvalidSlug}, {"a-", ErrInvalidSlug}, {"a--b", ErrInvalidSlug}, {"A", ErrInvalidSlug}, {"a_b", ErrInvalidSlug}, {"", ErrInvalidSlug}, {"admin", ErrReservedSlug},
+		{"-a", ErrInvalidSlug}, {"a-", ErrInvalidSlug}, {"a--b", ErrInvalidSlug},
+		{"A", ErrInvalidSlug}, {"a_b", ErrInvalidSlug}, {"", ErrInvalidSlug}, {"admin", ErrReservedSlug},
 	} {
 		t.Run(tc.s, func(t *testing.T) {
 			if got := ValidateSlug(tc.s, []string{"admin"}); !errors.Is(got, tc.want) {

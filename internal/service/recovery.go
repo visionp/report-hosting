@@ -62,7 +62,8 @@ func Recover(ctx context.Context, st *repository.Store, layout storage.Layout, l
 		}
 		line := strings.TrimSuffix(string(credential), "\n")
 		parts := strings.Split(line, ":")
-		if len(parts) != 2 || strings.ContainsAny(line, "\r\n") || domain.ValidateUsername(parts[0]) != nil || !strings.HasPrefix(parts[1], "{SSHA}") {
+		if len(parts) != 2 || strings.ContainsAny(line, "\r\n") ||
+			domain.ValidateUsername(parts[0]) != nil || !strings.HasPrefix(parts[1], "{SSHA}") {
 			return errors.New("invalid credential file")
 		}
 		decoded, e := base64.StdEncoding.DecodeString(strings.TrimPrefix(parts[1], "{SSHA}"))
@@ -133,7 +134,8 @@ func Recover(ctx context.Context, st *repository.Store, layout storage.Layout, l
 		}
 		for _, entry := range entries {
 			var n int
-			if _, e = fmt.Sscanf(entry.Name(), "%d", &n); e == nil && n > 0 && entry.Name() == fmt.Sprintf("%06d", n) && entry.IsDir() && !known[entry.Name()] {
+			if _, e = fmt.Sscanf(entry.Name(), "%d", &n); e == nil && n > 0 &&
+				entry.Name() == fmt.Sprintf("%06d", n) && entry.IsDir() && !known[entry.Name()] {
 				if e = os.RemoveAll(layout.ReleaseDir(site.ID, n)); e != nil {
 					return e
 				}

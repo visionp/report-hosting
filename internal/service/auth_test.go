@@ -127,7 +127,8 @@ func TestLoginPurgesStaleAttemptsAndSessions(t *testing.T) {
 	a, now := testAuth(t)
 	ctx := context.Background()
 	for i := 0; i < 20; i++ {
-		if _, err := a.Login(ctx, "bogus"+string(rune('a'+i)), "x", fmt.Sprintf("10.1.0.%d", i)); !errors.Is(err, ErrBadCredentials) {
+		_, err := a.Login(ctx, "bogus"+string(rune('a'+i)), "x", fmt.Sprintf("10.1.0.%d", i))
+		if !errors.Is(err, ErrBadCredentials) {
 			t.Fatalf("attempt %d: %v", i, err)
 		}
 	}

@@ -27,7 +27,8 @@ func submitForm(h http.Handler, path, session string, values url.Values) *httpte
 func TestWebsiteLibrarySearchAndStatusFilter(t *testing.T) {
 	h, session := testRouter(t)
 	for _, slug := range []string{"alpha", "beta"} {
-		w := request(h, "POST", "/api/sites", `{"name":"Report `+slug+`","slug":"`+slug+`"}`, session, "https://admin.partnersflex.space", csrf(session))
+		w := request(h, "POST", "/api/sites", `{"name":"Report `+slug+`","slug":"`+slug+`"}`,
+			session, "https://admin.partnersflex.space", csrf(session))
 		if w.Code != 201 {
 			t.Fatal(w.Body.String())
 		}
@@ -36,7 +37,8 @@ func TestWebsiteLibrarySearchAndStatusFilter(t *testing.T) {
 			if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
 				t.Fatal(err)
 			}
-			w = request(h, "POST", "/api/sites/"+created.Site.ID+"/disable", "", session, "https://admin.partnersflex.space", csrf(session))
+			w = request(h, "POST", "/api/sites/"+created.Site.ID+"/disable", "",
+				session, "https://admin.partnersflex.space", csrf(session))
 			if w.Code != 204 {
 				t.Fatal(w.Body.String())
 			}
@@ -75,11 +77,16 @@ func TestCreatedPasswordOffersHoverCopy(t *testing.T) {
 	h, session := testRouter(t)
 	w := submitForm(h, "/sites/create", session, url.Values{"name": {"Quarterly report"}, "slug": {"quarterly-report"}})
 	body := w.Body.String()
-	if w.Code != 200 || !strings.Contains(body, `data-copy-password`) || !strings.Contains(body, `class="generated-password-value"`) || !strings.Contains(body, `/static/copy-password.js`) || !strings.Contains(body, "Hover or click the password to copy it") {
+	if w.Code != 200 || !strings.Contains(body, `data-copy-password`) ||
+		!strings.Contains(body, `class="generated-password-value"`) ||
+		!strings.Contains(body, `/static/copy-password.js`) ||
+		!strings.Contains(body, "Hover or click the password to copy it") {
 		t.Fatalf("created website should show a hover-to-copy password: %d %s", w.Code, body)
 	}
 	script := request(h, "GET", "/static/copy-password.js", "", session, "", "")
-	if script.Code != 200 || script.Header().Get("Content-Type") != "text/javascript; charset=utf-8" || !strings.Contains(script.Body.String(), "pointerenter") || !strings.Contains(script.Body.String(), "writeText") {
+	if script.Code != 200 || script.Header().Get("Content-Type") != "text/javascript; charset=utf-8" ||
+		!strings.Contains(script.Body.String(), "pointerenter") ||
+		!strings.Contains(script.Body.String(), "writeText") {
 		t.Fatalf("copy script unavailable: %d %s", script.Code, script.Header().Get("Content-Type"))
 	}
 }
@@ -87,7 +94,8 @@ func TestCreatedPasswordOffersHoverCopy(t *testing.T) {
 func TestLoginErrorStaysOnSignInPage(t *testing.T) {
 	h, _ := testRouter(t)
 	w := submitForm(h, "/login", "", url.Values{"username": {"admin"}, "password": {"wrong"}})
-	if w.Code != 401 || !strings.Contains(w.Body.String(), "The username or password is incorrect") || !strings.Contains(w.Body.String(), `autocomplete="current-password"`) {
+	if w.Code != 401 || !strings.Contains(w.Body.String(), "The username or password is incorrect") ||
+		!strings.Contains(w.Body.String(), `autocomplete="current-password"`) {
 		t.Fatalf("login error lost the sign-in form: %d %s", w.Code, w.Body.String())
 	}
 }

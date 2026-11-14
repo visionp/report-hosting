@@ -29,7 +29,9 @@ func TestServiceLogsExcludeSecretsAndUploadPaths(t *testing.T) {
 	}
 	check(t, s.Disable(ctx, "admin", v.ID))
 	text := out.String()
-	for _, secret := range []string{pw, "private-content", secretPath, s.Layout.Root, "Authorization", "Cf-Access-Jwt-Assertion"} {
+	for _, secret := range []string{
+		pw, "private-content", secretPath, s.Layout.Root, "Authorization", "Cf-Access-Jwt-Assertion",
+	} {
 		if strings.Contains(text, secret) {
 			t.Fatal("secret in logs", secret)
 		}

@@ -16,7 +16,8 @@ func file(t *testing.T, s string) string {
 }
 func TestDefaults(t *testing.T) {
 	c := Defaults()
-	if c.Limits != (Limits{50 << 20, 250 << 20, 5000, 100}) || !c.AccessCheck || !c.Production || len(c.ReservedSlugs) != 10 {
+	if c.Limits != (Limits{50 << 20, 250 << 20, 5000, 100}) ||
+		!c.AccessCheck || !c.Production || len(c.ReservedSlugs) != 10 {
 		t.Fatalf("unexpected defaults: %+v", c)
 	}
 }
@@ -30,7 +31,14 @@ func TestLocalConfig(t *testing.T) {
 	}
 }
 func TestRejectUnsafeConfig(t *testing.T) {
-	for _, s := range []string{`{"production":true,"access_check":false}`, `{"production":false,"access_check":false,"listen_addr":"0.0.0.0:8080"}`, `{"production":false,"access_check":false,"limits":{"max_files":0}}`, `{"unknown":true}`, `{} {}`, `null`} {
+	for _, s := range []string{
+		`{"production":true,"access_check":false}`,
+		`{"production":false,"access_check":false,"listen_addr":"0.0.0.0:8080"}`,
+		`{"production":false,"access_check":false,"limits":{"max_files":0}}`,
+		`{"unknown":true}`,
+		`{} {}`,
+		`null`,
+	} {
 		t.Run(s, func(t *testing.T) {
 			if _, err := Load(file(t, s)); err == nil {
 				t.Fatal("unsafe config accepted")

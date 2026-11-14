@@ -65,7 +65,8 @@ func TestUploadCredentialsAndDelete(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 	w = request(h, "GET", "/sites/"+created.Site.ID, "", id, "", "")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "new-user") || strings.Contains(w.Body.String(), "src=\"https://") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "new-user") ||
+		strings.Contains(w.Body.String(), "src=\"https://") {
 		t.Fatal("invalid detail page")
 	}
 	if w = request(h, "POST", base+"/disable", "", id, origin, csrf(id)); w.Code != 204 {
@@ -109,7 +110,8 @@ func testRouter(t *testing.T) (http.Handler, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sites := service.NewSites(st, layout, routing.Links{Dir: layout.BySlugDir()}, storage.NewDeployer(layout, st, c.Limits, 0), c.ReservedSlugs)
+	sites := service.NewSites(st, layout, routing.Links{Dir: layout.BySlugDir()},
+		storage.NewDeployer(layout, st, c.Limits, 0), c.ReservedSlugs)
 	return NewRouter(Deps{Config: c, Auth: auth, Sites: sites}), id
 }
 func request(h http.Handler, method, path, body, id, origin, token string) *httptest.ResponseRecorder {
@@ -135,12 +137,16 @@ func TestAPISessionAndCSRF(t *testing.T) {
 			t.Fatalf("%s: %d", path, w.Code)
 		}
 	}
-	for _, tc := range []struct{ origin, token string }{{"https://admin.partnersflex.space", ""}, {"https://evil.partnersflex.space", csrf(id)}} {
+	for _, tc := range []struct{ origin, token string }{
+		{"https://admin.partnersflex.space", ""},
+		{"https://evil.partnersflex.space", csrf(id)},
+	} {
 		if w := request(h, "POST", "/api/sites", `{"name":"test","slug":"test"}`, id, tc.origin, tc.token); w.Code != 403 {
 			t.Fatal(w.Code)
 		}
 	}
-	w := request(h, "POST", "/api/sites", `{"name":"<script>","slug":"test"}`, id, "https://admin.partnersflex.space", csrf(id))
+	w := request(h, "POST", "/api/sites", `{"name":"<script>","slug":"test"}`,
+		id, "https://admin.partnersflex.space", csrf(id))
 	if w.Code != 201 || !strings.Contains(w.Body.String(), "password") {
 		t.Fatalf("create: %d %s", w.Code, w.Body.String())
 	}
@@ -165,7 +171,8 @@ func TestAccessDefaultFailClosed(t *testing.T) {
 }
 func TestCookie(t *testing.T) {
 	c := SessionCookie("token")
-	if !c.Secure || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode || c.Path != "/" || c.Domain != "" || !strings.HasPrefix(c.Name, "__Host-") {
+	if !c.Secure || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode ||
+		c.Path != "/" || c.Domain != "" || !strings.HasPrefix(c.Name, "__Host-") {
 		t.Fatal(c)
 	}
 }
@@ -188,8 +195,15 @@ func TestAccessVerifier(t *testing.T) {
 		issuer, aud string
 		expiry      time.Time
 		valid       bool
-	}{{"https://team.cloudflareaccess.com", "aud", time.Now().Add(time.Hour), true}, {"wrong", "aud", time.Now().Add(time.Hour), false}, {"https://team.cloudflareaccess.com", "wrong", time.Now().Add(time.Hour), false}, {"https://team.cloudflareaccess.com", "aud", time.Now().Add(-time.Hour), false}} {
-		token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.RegisteredClaims{Issuer: tc.issuer, Audience: jwt.ClaimStrings{tc.aud}, ExpiresAt: jwt.NewNumericDate(tc.expiry)})
+	}{
+		{"https://team.cloudflareaccess.com", "aud", time.Now().Add(time.Hour), true},
+		{"wrong", "aud", time.Now().Add(time.Hour), false},
+		{"https://team.cloudflareaccess.com", "wrong", time.Now().Add(time.Hour), false},
+		{"https://team.cloudflareaccess.com", "aud", time.Now().Add(-time.Hour), false},
+	} {
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.RegisteredClaims{
+			Issuer: tc.issuer, Audience: jwt.ClaimStrings{tc.aud}, ExpiresAt: jwt.NewNumericDate(tc.expiry),
+		})
 		token.Header["kid"] = "test"
 		raw, err := token.SignedString(key)
 		if err != nil {

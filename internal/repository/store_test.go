@@ -26,10 +26,16 @@ func testStore(t *testing.T) *Store {
 }
 func site(id, slug string) domain.Site {
 	now := time.Now().UTC()
-	return domain.Site{ID: id, Name: slug, Slug: slug, AuthUsername: slug, Status: domain.SiteStatus("active"), CreatedAt: now, UpdatedAt: now}
+	return domain.Site{
+		ID: id, Name: slug, Slug: slug, AuthUsername: slug, Status: domain.SiteStatus("active"),
+		CreatedAt: now, UpdatedAt: now,
+	}
 }
 func release(id, siteID string, n int) domain.Release {
-	return domain.Release{ID: id, SiteID: siteID, Version: n, StoragePath: "releases/" + id, Checksum: "digest", Status: domain.ReleaseStatus("ready"), CreatedAt: time.Now().UTC()}
+	return domain.Release{
+		ID: id, SiteID: siteID, Version: n, StoragePath: "releases/" + id, Checksum: "digest",
+		Status: domain.ReleaseStatus("ready"), CreatedAt: time.Now().UTC(),
+	}
 }
 func must(t *testing.T, err error) {
 	t.Helper()
@@ -188,7 +194,8 @@ func TestReplaceAdminRollsBackWhenAuditFails(t *testing.T) {
 	must(t, s.CreateAdmin(ctx, "admin", "hash"))
 	now := time.Now().UTC()
 	must(t, s.PutSession(ctx, "kept", now, now, now.Add(time.Hour)))
-	_, err := s.db.Exec(`CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(FAIL,'audit unavailable'); END`)
+	_, err := s.db.Exec("CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events " +
+		"BEGIN SELECT RAISE(FAIL,'audit unavailable'); END")
 	must(t, err)
 	if err = s.ReplaceAdmin(ctx, "owner", "new-hash"); err == nil {
 		t.Fatal("expected audit failure")

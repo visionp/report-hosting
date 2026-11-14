@@ -17,10 +17,12 @@ func TestDeleteSiteWithAuditAtomic(t *testing.T) {
 			must(t, s.AddRelease(ctx, release("r1", "a", 1)))
 			switch failure {
 			case "audit":
-				_, err := s.db.Exec(`CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(FAIL,'audit unavailable'); END`)
+				_, err := s.db.Exec("CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events " +
+					"BEGIN SELECT RAISE(FAIL,'audit unavailable'); END")
 				must(t, err)
 			case "delete":
-				_, err := s.db.Exec(`CREATE TRIGGER fail_delete BEFORE DELETE ON sites BEGIN SELECT RAISE(FAIL,'delete unavailable'); END`)
+				_, err := s.db.Exec("CREATE TRIGGER fail_delete BEFORE DELETE ON sites " +
+					"BEGIN SELECT RAISE(FAIL,'delete unavailable'); END")
 				must(t, err)
 			}
 			err := s.DeleteSiteWithAudit(ctx, "a", "administrator")
@@ -35,7 +37,8 @@ func TestDeleteSiteWithAuditAtomic(t *testing.T) {
 			audit, err := s.ListAudit(ctx, "a")
 			must(t, err)
 			if failure == "none" {
-				if !errors.Is(getErr, domain.ErrNotFound) || len(releases) != 0 || len(audit) != 1 || audit[0].Action != "delete" || audit[0].Actor != "administrator" {
+				if !errors.Is(getErr, domain.ErrNotFound) || len(releases) != 0 || len(audit) != 1 ||
+					audit[0].Action != "delete" || audit[0].Actor != "administrator" {
 					t.Fatalf("inconsistent committed deletion: site=%v releases=%v audit=%v", getErr, releases, audit)
 				}
 				if err = s.DeleteSiteWithAudit(ctx, "a", "administrator"); !errors.Is(err, domain.ErrNotFound) {

@@ -14,7 +14,9 @@ import (
 )
 
 func validParams(p config.Argon2Params) bool {
-	return p.Parallelism > 0 && p.Parallelism <= 16 && p.Memory >= 8*uint32(p.Parallelism) && p.Memory <= 256*1024 && p.Iterations > 0 && p.Iterations <= 10
+	return p.Parallelism > 0 && p.Parallelism <= 16 &&
+		p.Memory >= 8*uint32(p.Parallelism) && p.Memory <= 256*1024 &&
+		p.Iterations > 0 && p.Iterations <= 10
 }
 func HashPassword(pw string, p config.Argon2Params) (string, error) {
 	if !validParams(p) || len(pw) == 0 || len(pw) > 4096 {
@@ -25,7 +27,10 @@ func HashPassword(pw string, p config.Argon2Params) (string, error) {
 		return "", err
 	}
 	h := argon2.IDKey([]byte(pw), salt, p.Iterations, p.Memory, p.Parallelism, 32)
-	return fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s", p.Memory, p.Iterations, p.Parallelism, base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(h)), nil
+	return fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		p.Memory, p.Iterations, p.Parallelism,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(h)), nil
 }
 func VerifyPassword(hash, pw string) bool {
 	if len(pw) > 4096 || len(hash) > 512 {

@@ -38,7 +38,10 @@ func (v *accessVerifier) Verify(ctx context.Context, raw string) error {
 			return nil, errors.New("missing key ID")
 		}
 		return v.keys.Key(ctx, kid)
-	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer("https://"+v.team), jwt.WithAudience(v.aud), jwt.WithExpirationRequired())
+	}, jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithIssuer("https://"+v.team),
+		jwt.WithAudience(v.aud),
+		jwt.WithExpirationRequired())
 	return err
 }
 
@@ -125,7 +128,12 @@ func (k *RemoteKeys) fetch(ctx context.Context) (map[string]*rsa.PublicKey, erro
 	}
 	client := k.HTTPClient
 	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect rejected") }}
+		client = &http.Client{
+			Timeout: 10 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return errors.New("redirect rejected")
+			},
+		}
 	}
 	res, err := client.Do(req)
 	if err != nil {
