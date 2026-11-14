@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,12 +13,34 @@ import (
 
 // Each page has its own content definition and shares the same layout.
 var pages = map[string]*template.Template{
-	"login":     pageTemplate("login"),
-	"dashboard": pageTemplate("dashboard"),
+	"login":       pageTemplate("login"),
+	"dashboard":   pageTemplate("dashboard"),
+	"create":      pageTemplate("create"),
+	"site":        pageTemplate("site"),
+	"credentials": pageTemplate("credentials"),
+}
+
+// Keep the current search when switching between status filters.
+func libraryURL(query, status string) string {
+	params := url.Values{}
+	if query != "" {
+		params.Set("q", query)
+	}
+	if status != "" {
+		params.Set("status", status)
+	}
+	u := url.URL{Path: "/", RawQuery: params.Encode()}
+	return u.String()
 }
 
 func pageTemplate(name string) *template.Template {
+	files := []string{"templates/layout.html", "templates/icons.html"}
+	if name != "login" {
+		files = append(files, "templates/workspace.html")
+	}
+	files = append(files, "templates/"+name+".html")
 	return template.Must(template.New("layout").Funcs(template.FuncMap{
+		"libraryURL": libraryURL,
 		"initial": func(s string) string {
 			for _, r := range strings.TrimSpace(s) {
 				return strings.ToUpper(string(r))
@@ -25,7 +48,7 @@ func pageTemplate(name string) *template.Template {
 			return "R"
 		},
 		"date": func(t time.Time) string { return t.UTC().Format("02 Jan 2006 · 15:04 UTC") },
-	}).ParseFS(web.Templates, "templates/layout.html", "templates/icons.html", "templates/"+name+".html"))
+	}).ParseFS(web.Templates, files...))
 }
 
 func render(w http.ResponseWriter, page string, data any) {

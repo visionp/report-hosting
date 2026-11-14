@@ -1,0 +1,94 @@
+{{define "title"}}{{.Site.Name}}{{end}}
+{{define "workspace-page"}}
+  <div class="detail-page">
+    {{template "back-to-websites" .}}
+    <div class="page-heading detail-heading">
+      <div>
+        <h1>{{.Site.Name}}</h1>
+        {{if and (eq .Site.Status "active") .Site.CurrentReleaseID}}
+          <a class="site-url" href="https://{{.Site.Slug}}.{{.BaseDomain}}" target="_blank" rel="noopener">{{.Site.Slug}}.{{.BaseDomain}} <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        {{else}}
+          <span class="site-url">{{.Site.Slug}}.{{.BaseDomain}}</span>
+        {{end}}
+      </div>
+      {{template "site-status" .Site}}
+    </div>
+
+    <section class="surface release-panel" aria-labelledby="release-title">
+      <div class="release-heading">
+        <h2 id="release-title">Publication</h2>
+        <span class="release-state">{{if .Site.CurrentReleaseID}}Published{{else}}No release yet{{end}}</span>
+      </div>
+      <form class="publish-form" action="/sites/{{.Site.ID}}/deploy" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        {{if eq .FailedAction "deploy"}}{{template "form-error" .Error}}{{end}}
+        <div class="field">
+          <label for="release-file">Website file</label>
+          <input id="release-file" type="file" name="file" required accept=".zip,.html" aria-describedby="release-help">
+          <small id="release-help">One HTML file or a ZIP containing index.html. Maximum {{.UploadLimit}}.</small>
+        </div>
+        <button class="button primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg> Publish</button>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="settings-title">
+      <h2 id="settings-title">Website settings</h2>
+      <div class="surface settings-list">
+        <details {{if eq .FailedAction "rename"}}open{{end}}>
+          <summary>Name and address</summary>
+          <form class="settings-form" method="post" action="/sites/{{.Site.ID}}/rename">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            {{if eq .FailedAction "rename"}}{{template "form-error" .Error}}{{end}}
+            <div class="field-pair">
+              <label class="field"><span>Website name</span><input name="name" value="{{.Name}}" required></label>
+              <label class="field"><span>Website address</span><input name="slug" value="{{.Slug}}" required maxlength="32" spellcheck="false" autocapitalize="none"></label>
+            </div>
+            <button class="button secondary" type="submit">Save changes</button>
+          </form>
+        </details>
+        <details {{if eq .FailedAction "credentials"}}open{{end}}>
+          <summary>Access credentials</summary>
+          <form class="settings-form" method="post" action="/sites/{{.Site.ID}}/credentials">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            {{if eq .FailedAction "credentials"}}{{template "form-error" .Error}}{{end}}
+            <label class="field">
+              <span>Site username</span>
+              <input name="username" value="{{.Username}}" required maxlength="32" spellcheck="false" autocapitalize="none" autocomplete="off" aria-describedby="password-help">
+              <small id="password-help">Generating a password immediately replaces the current one.</small>
+            </label>
+            <button class="button secondary" type="submit">Generate new password</button>
+          </form>
+        </details>
+        <details {{if or (eq .FailedAction "enable") (eq .FailedAction "disable") (eq .FailedAction "delete")}}open{{end}}>
+          <summary>Website availability</summary>
+          <div class="settings-form">
+            {{if or (eq .FailedAction "enable") (eq .FailedAction "disable")}}{{template "form-error" .Error}}{{end}}
+            {{if eq .Site.Status "active"}}
+              <form method="post" action="/sites/{{.Site.ID}}/disable">
+                <input type="hidden" name="csrf" value="{{.CSRF}}">
+                <p class="action-help">Disabling this website pauses access and keeps its files.</p>
+                <button class="button secondary" type="submit">Disable website</button>
+              </form>
+            {{else}}
+              <form method="post" action="/sites/{{.Site.ID}}/enable">
+                <input type="hidden" name="csrf" value="{{.CSRF}}">
+                <p class="action-help">Enable this website to restore access.</p>
+                <button class="button secondary" type="submit">Enable website</button>
+              </form>
+              <form class="delete-form" method="post" action="/sites/{{.Site.ID}}/delete">
+                <input type="hidden" name="csrf" value="{{.CSRF}}">
+                <h3>Delete website</h3>
+                {{if eq .FailedAction "delete"}}{{template "form-error" .Error}}{{end}}
+                <label class="field">
+                  <span>Type <strong>{{.Site.Slug}}</strong> to delete this website and all its releases permanently.</span>
+                  <input name="slug" required autocomplete="off" spellcheck="false" autocapitalize="none">
+                </label>
+                <button class="button danger-button" type="submit">Delete permanently</button>
+              </form>
+            {{end}}
+          </div>
+        </details>
+      </div>
+    </section>
+  </div>
+{{end}}

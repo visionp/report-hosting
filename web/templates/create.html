@@ -1,0 +1,27 @@
+{{define "title"}}Create a website{{end}}
+{{define "workspace-page"}}
+  <div class="form-page">
+    <a class="back-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg> Cancel</a>
+    <div class="page-heading"><h1>Create a website</h1></div>
+    <form class="surface form-panel" action="/sites/create" method="post">
+      {{template "form-error" .Error}}
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label class="field">
+        <span>Website name</span>
+        <input name="name" value="{{.Name}}" placeholder="Quarterly report" required>
+      </label>
+      <div class="field">
+        <label for="create-address">Website address</label>
+        <div class="address-field">
+          <input id="create-address" name="slug" value="{{.Slug}}" placeholder="quarterly-report" required maxlength="32" spellcheck="false" autocapitalize="none" aria-describedby="address-suffix address-rules">
+          <span id="address-suffix">.{{.BaseDomain}}</span>
+        </div>
+        <small id="address-rules">Use lowercase letters, numbers and single hyphens.</small>
+      </div>
+      <div class="form-actions">
+        <p class="muted"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg> Your access password will be shown once.</p>
+        <button class="button primary" type="submit">Create website <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+      </div>
+    </form>
+  </div>
+{{end}}

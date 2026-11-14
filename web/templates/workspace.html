@@ -1,0 +1,32 @@
+{{define "content"}}
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="workspace-header">
+    <div class="header-inner">
+      <div class="product-brand">
+        <img src="/static/flex-partners-white.svg" alt="Flex Partners" width="141" height="36">
+        <span>Report hosting</span>
+      </div>
+      <form action="/logout" method="post">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button type="submit" class="button sign-out"><svg class="icon" aria-hidden="true"><use href="#i-exit"/></svg> Sign out</button>
+      </form>
+    </div>
+  </header>
+  <main id="main-content" class="workspace-main">
+    {{template "workspace-page" .}}
+  </main>
+{{end}}
+
+{{define "back-to-websites"}}
+  <a class="back-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg> Websites</a>
+{{end}}
+
+{{define "site-status"}}
+  <span class="status-badge {{if eq .Status "disabled"}}disabled{{end}}">
+    <span aria-hidden="true"></span>{{if eq .Status "active"}}Active{{else}}Disabled{{end}}
+  </span>
+{{end}}
+
+{{define "form-error"}}
+  {{if .}}<p class="notice danger" role="alert">{{.}}</p>{{end}}
+{{end}}
