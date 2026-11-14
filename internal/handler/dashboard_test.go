@@ -71,6 +71,19 @@ func TestWebsiteFormErrorKeepsLayoutAndEnteredValues(t *testing.T) {
 	}
 }
 
+func TestCreatedPasswordOffersHoverCopy(t *testing.T) {
+	h, session := testRouter(t)
+	w := submitForm(h, "/sites/create", session, url.Values{"name": {"Quarterly report"}, "slug": {"quarterly-report"}})
+	body := w.Body.String()
+	if w.Code != 200 || !strings.Contains(body, `data-copy-password`) || !strings.Contains(body, `class="generated-password-value"`) || !strings.Contains(body, `/static/copy-password.js`) || !strings.Contains(body, "Hover or click the password to copy it") {
+		t.Fatalf("created website should show a hover-to-copy password: %d %s", w.Code, body)
+	}
+	script := request(h, "GET", "/static/copy-password.js", "", session, "", "")
+	if script.Code != 200 || script.Header().Get("Content-Type") != "text/javascript; charset=utf-8" || !strings.Contains(script.Body.String(), "pointerenter") || !strings.Contains(script.Body.String(), "writeText") {
+		t.Fatalf("copy script unavailable: %d %s", script.Code, script.Header().Get("Content-Type"))
+	}
+}
+
 func TestLoginErrorStaysOnSignInPage(t *testing.T) {
 	h, _ := testRouter(t)
 	w := submitForm(h, "/login", "", url.Values{"username": {"admin"}, "password": {"wrong"}})

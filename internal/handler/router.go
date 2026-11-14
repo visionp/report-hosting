@@ -70,6 +70,7 @@ func (h *router) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	staticTypes := map[string]string{
 		"/static/htmx.min.js":             "text/javascript; charset=utf-8",
+		"/static/copy-password.js":        "text/javascript; charset=utf-8",
 		"/static/styles.css":              "text/css; charset=utf-8",
 		"/static/flex-partners-white.svg": "image/svg+xml",
 	}

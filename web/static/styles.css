@@ -686,16 +686,45 @@ a.site-url:hover,
   margin: 0 0 16px;
 }
 
-.generated-password {
-  display: inline-block;
+button.generated-password {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   max-width: 100%;
   padding: 10px 12px;
   border: 1px solid #d4dfc8;
   border-radius: 6px;
   color: var(--primary);
   background: #f0f5ea;
-  font: 15px ui-monospace, monospace;
+  font: 500 15px ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.4;
+  text-align: left;
+  cursor: copy;
+}
+
+button.generated-password:hover,
+button.generated-password.is-copied {
+  border-color: #8fb56a;
+  background: #e7f3d8;
+}
+
+.generated-password-value {
+  min-width: 0;
   user-select: all;
+  overflow-wrap: anywhere;
+}
+
+button.generated-password .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.copy-status {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .credential-hint {
