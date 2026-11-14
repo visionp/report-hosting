@@ -34,7 +34,10 @@ func run(args []string) error {
 		return serve(args[1:])
 	}
 	if len(args) >= 2 && args[0] == "admin" && args[1] == "create" {
-		return createAdmin(args[2:])
+		return writeAdmin("admin create", args[2:], false)
+	}
+	if len(args) >= 2 && args[0] == "admin" && args[1] == "set" {
+		return writeAdmin("admin set", args[2:], true)
 	}
 	if len(args) == 0 || args[0] != "check-config" {
 		return fmt.Errorf("usage: report_hosting check-config -config <file>")
@@ -51,14 +54,16 @@ func run(args []string) error {
 	return nil
 }
 
-func createAdmin(args []string) error {
-	f := flag.NewFlagSet("admin create", flag.ContinueOnError)
+// writeAdmin creates the administrator, or with replace=true swaps the existing
+// one (new username and password, all sessions ended, change audited).
+func writeAdmin(name string, args []string, replace bool) error {
+	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	path := f.String("config", "", "JSON configuration file")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 1 {
-		return fmt.Errorf("usage: report_hosting admin create -config <file> <username>")
+		return fmt.Errorf("usage: report_hosting %s -config <file> <username>", name)
 	}
 	username := f.Arg(0)
 	if err := domain.ValidateUsername(username); err != nil {
@@ -95,6 +100,13 @@ func createAdmin(args []string) error {
 		return err
 	}
 	defer st.Close()
+	if replace {
+		if err = st.ReplaceAdmin(context.Background(), username, hash); err != nil {
+			return err
+		}
+		fmt.Println("administrator replaced; all sessions ended")
+		return nil
+	}
 	if err = st.CreateAdmin(context.Background(), username, hash); err != nil {
 		return err
 	}

@@ -157,6 +157,51 @@ func TestSessionAndSingleAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestReplaceAdminEndsSessionsAndAudits(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	must(t, s.CreateAdmin(ctx, "admin", "hash"))
+	now := time.Now().UTC()
+	must(t, s.PutSession(ctx, "old", now, now, now.Add(time.Hour)))
+	must(t, s.ReplaceAdmin(ctx, "owner", "new-hash"))
+	if _, err := s.GetAdmin(ctx, "admin"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("old username still present: %v", err)
+	}
+	a, err := s.GetAdmin(ctx, "owner")
+	must(t, err)
+	if a.PasswordHash != "new-hash" {
+		t.Fatal(a)
+	}
+	if _, err = s.GetSession(ctx, "old"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("session survived replacement: %v", err)
+	}
+	audit, err := s.ListAudit(ctx, "")
+	must(t, err)
+	if len(audit) != 1 || audit[0].Action != "admin_credentials" || audit[0].Actor != "cli" {
+		t.Fatal(audit)
+	}
+}
+
+func TestReplaceAdminRollsBackWhenAuditFails(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	must(t, s.CreateAdmin(ctx, "admin", "hash"))
+	now := time.Now().UTC()
+	must(t, s.PutSession(ctx, "kept", now, now, now.Add(time.Hour)))
+	_, err := s.db.Exec(`CREATE TRIGGER fail_audit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(FAIL,'audit unavailable'); END`)
+	must(t, err)
+	if err = s.ReplaceAdmin(ctx, "owner", "new-hash"); err == nil {
+		t.Fatal("expected audit failure")
+	}
+	a, err := s.GetAdmin(ctx, "admin")
+	must(t, err)
+	if a.PasswordHash != "hash" {
+		t.Fatal("admin changed despite rollback")
+	}
+	_, err = s.GetSession(ctx, "kept")
+	must(t, err)
+}
+
 func TestFailedLoginCountersAtomicAndExpire(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

@@ -224,6 +224,30 @@ func (s *Store) CreateAdmin(ctx context.Context, username, hash string) error {
 	_, err := s.db.ExecContext(ctx, "INSERT INTO admins(id,username,password_hash,created_at) VALUES(1,?,?,?)", username, hash, time.Now().UnixNano())
 	return err
 }
+
+// ReplaceAdmin swaps the single administrator, ends every existing session and
+// records the change. All writes commit together or not at all.
+func (s *Store) ReplaceAdmin(ctx context.Context, username, hash string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().UnixNano()
+	if _, err = tx.ExecContext(ctx, "DELETE FROM admins"); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "DELETE FROM admin_sessions"); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO admins(id,username,password_hash,created_at) VALUES(1,?,?,?)", username, hash, now); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO audit_events(actor,action,site_id,created_at) VALUES('cli','admin_credentials','',?)", now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 func (s *Store) GetAdmin(ctx context.Context, username string) (Admin, error) {
 	var v Admin
 	var c int64

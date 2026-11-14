@@ -81,6 +81,15 @@ Administrator creation reads the password without echo from a terminal, or from
 standard input when piped. Never put passwords in command arguments. It refuses
 to create a second administrator. Failed commands return a nonzero exit status.
 
+To change the administrator's username or password, run the same command with
+`admin set`. It replaces the single administrator, ends all existing sessions and
+records the change in `audit_events` in one transaction. The service may keep
+running:
+
+```sh
+report_hosting admin set -config /etc/report_hosting/config.json NEW_USERNAME
+```
+
 Login password checks share a process-wide limit of two concurrent operations
 (about 128 MiB of Argon2 working memory at the default settings). Waiting requests
 honor cancellation, including waits for another attempt on the same account.
