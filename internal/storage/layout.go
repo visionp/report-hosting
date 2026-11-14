@@ -1,3 +1,5 @@
+// Package storage is the filesystem adapter: directory layout, archive extraction,
+// htpasswd files, and publishing a release.
 package storage
 
 import (

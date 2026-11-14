@@ -1,3 +1,5 @@
+// Package domain is the center of the application: site and release rules
+// with no knowledge of HTTP, SQLite, or the filesystem.
 package domain
 
 import (

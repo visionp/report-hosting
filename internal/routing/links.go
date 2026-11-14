@@ -1,4 +1,5 @@
-// Package routing manages the service-owned Nginx hostname links.
+// Package routing is the Nginx adapter. Each public slug is one symlink
+// owned by this service.
 package routing
 
 import (
